@@ -379,7 +379,19 @@ Se eliminarán también sus registros de cuotas.`)) return
   const puedeEditar = puedeGestionarNinos; // Referencia que falta
   const esAdmin = perfil?.rol === 'Admin'
 
-  if (loading) return <div className="flex justify-center items-center h-64 text-4xl animate-spin">🌱</div>
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-64 space-y-4">
+      <div className="relative">
+        <img 
+          src="/logo_regacitos.png" 
+          alt="Cargando..." 
+          className="w-20 h-20 object-contain animate-pulse" 
+        />
+        <div className="absolute inset-0 border-4 border-brand-100 border-t-brand-500 rounded-full animate-spin"></div>
+      </div>
+      <p className="text-brand-600 font-bold text-sm animate-bounce">Cargando...</p>
+    </div>
+  )
 
   return (
     <div className="max-w-6xl">
@@ -399,7 +411,7 @@ Se eliminarán también sus registros de cuotas.`)) return
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Niños</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Niñas y Niños</h1>
           <p className="text-gray-500 text-sm mt-1">{ninos.length} inscritos activos · {ANIO_ACTUAL}</p>
         </div>
         {puedeGestionarNinos && (
@@ -408,7 +420,7 @@ Se eliminarán también sus registros de cuotas.`)) return
               📂 Importar
             </button>
             <button onClick={() => setModalNino('nuevo')} className="btn-primary flex items-center gap-2 text-xs sm:text-sm">
-              + Agregar niño
+              + Agregar niña o niño
             </button>
           </div>
         )}
@@ -455,7 +467,7 @@ Se eliminarán también sus registros de cuotas.`)) return
                           disabled={!puedeMarcarPagos}
                           onClick={() => puedeMarcarPagos && togglePago(nino.id, mesNum)}
                           className={`w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold border transition-all ${
-                            pagado ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-gray-50 border-gray-200 text-gray-400'
+                            pagado ? 'bg-brand-100 text-brand-700' : 'bg-luna-50 text-luna-300 border-luna-100'
                           }`}
                         >
                           {pagado ? '✓' : MESES_LABEL[mesNum].substring(0, 1)}
@@ -512,7 +524,7 @@ Se eliminarán también sus registros de cuotas.`)) return
                           onClick={() => puedeMarcarPagos && togglePago(nino.id, mesNum)}
                           disabled={!puedeMarcarPagos}
                           className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                            pagado ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-50 text-gray-300'
+                            pagado ? 'bg-brand-100 text-brand-700' : 'bg-luna-50 text-luna-300 border-luna-100'
                           } ${!puedeMarcarPagos ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}
                         >
                           {pagado ? '✓' : '·'}

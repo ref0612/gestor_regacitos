@@ -8,23 +8,63 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // --- LA NUEVA PALETA REGACITOS ---
+        
+        // 1. Verde Regacito (de la ropa esmeralda) -> Tu color principal
         brand: {
-          50:  '#f0faf4',
-          100: '#dbf2e4',
-          200: '#b9e5cb',
-          300: '#87d0aa',
-          400: '#52b484',
-          500: '#2e9867',
-          600: '#1e7a52',
-          700: '#196143',
-          800: '#174e37',
-          900: '#13402e',
-          950: '#0a2419',
+          50: '#f1f8f6',
+          100: '#ddeee8',
+          200: '#bdddd0',
+          300: '#94c6b2',
+          400: '#64a78c',
+          500: '#2d8465', // El tono exacto
+          600: '#1e6a51',
+          700: '#175542',
+          800: '#124436',
+          900: '#0c352a', // Para fondos oscuros (ej: barra lateral)
+          950: '#071f19',
         },
-        amber: {
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
+        
+        // 2. Naranja Acento (del vestido) -> Para botones principales
+        accent: {
+          50: '#fff9ed',
+          100: '#fff0d3',
+          200: '#ffdfa6',
+          300: '#ffc76f',
+          400: '#ffa73c',
+          500: '#ff8c1a', // El tono exacto del logo
+          600: '#f07412',
+          700: '#c85910',
+          800: '#9f4713',
+          900: '#803c13',
+        },
+
+        // 3. Azul Luna (del fondo) -> Para "Pendiente", fondos claros
+        luna: {
+          50: '#f2f8fc',
+          100: '#e1f0f8',
+          200: '#cae3f1',
+          300: '#a7d0e8',
+          400: '#7eb6dc',
+          500: '#60a2d2', // El tono de la luna
+          600: '#4c87b9',
+          700: '#3f6d97',
+          800: '#385d7d',
+          900: '#324e68',
+        },
+
+        // 4. Morado Secundario (de las mangas) -> Para el Tesorero
+        manga: {
+          50: '#f6f3f9',
+          100: '#ece7f2',
+          200: '#dbd1e8',
+          300: '#c2afda',
+          400: '#a286c9',
+          500: '#7e57b1', // El tono de las mangas
+          600: '#6d459c',
+          700: '#5c3883',
+          800: '#4d2f6e',
+          900: '#41295b',
         },
       },
       fontFamily: {

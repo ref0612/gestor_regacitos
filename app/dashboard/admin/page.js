@@ -79,7 +79,7 @@ function ModalCrear({ onClose, onCreado }) {
           </div>
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
-            <button type="submit" disabled={guardando} className="btn-primary flex-1">
+            <button type="submit" disabled={guardando} className="btn-primary flex-1 bg-accent-500 hover:bg-accent-600 text-white">
               {guardando ? 'Creando...' : 'Crear usuario'}
             </button>
           </div>

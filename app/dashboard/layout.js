@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 const NAV = [
   { href: '/dashboard',         label: 'Resumen',      icon: '📊', roles: ['Admin','Tesorero','Apoderado'] },
-  { href: '/dashboard/ninos',   label: 'Niños',        icon: '👧', roles: ['Admin','Tesorero','Apoderado'] },
+  { href: '/dashboard/ninos',   label: 'Niñas y Niños',        icon: '👧', roles: ['Admin','Tesorero','Apoderado'] },
   { href: '/dashboard/gastos',  label: 'Finanzas',     icon: '🧾', roles: ['Admin','Tesorero'] },
   { href: '/dashboard/admin',   label: 'Usuarios',     icon: '👥', roles: ['Admin'] },
   { href: '/dashboard/admin/configuracion', label: 'Configuración', icon: '⚙️', roles: ['Admin'] },
@@ -14,11 +14,11 @@ const NAV = [
 
 function RolBadge({ rol }) {
   const cls = {
-    Admin:    'bg-amber-100 text-amber-800',
-    Tesorero: 'bg-blue-100 text-blue-800',
-    Apoderado:'bg-emerald-100 text-emerald-800',
-  }[rol] || 'bg-gray-100 text-gray-600'
-  return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{rol}</span>
+    Admin:    'bg-brand-100 text-brand-800',
+    Tesorero: 'bg-manga-100 text-manga-800',
+    Apoderado:'bg-luna-100 text-luna-800',
+  }[rol] || 'bg-gray-100 text-gray-600';
+  return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{rol}</span>;
 }
 
 export default function DashboardLayout({ children }) {
@@ -47,11 +47,17 @@ export default function DashboardLayout({ children }) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 py-6 border-b border-white/10">
-        <span className="text-2xl">🌱</span>
-        <div>
-          <p className="font-bold text-white text-base leading-none">Jardín Regacito - Medio Menor "B"</p>
-          <p className="text-brand-300 text-xs mt-0.5">Gestión 2026</p>
-        </div>
+        <Link href="/dashboard" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+          <img 
+            src="/logo_regacitos.png" // Asegúrate de que el nombre coincida
+            alt="Logo Jardín Regacito" 
+            className="w-12 h-12 object-contain" // Tamaño perfecto para la barra lateral
+          />
+          <div className="min-w-0">
+            <p className="font-bold text-white text-base leading-none truncate">Jardín Regacito</p>
+            <p className="text-brand-100 text-[11px] mt-0.5 uppercase font-medium tracking-wider">Gestión 2026</p>
+          </div>
+        </Link>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5">

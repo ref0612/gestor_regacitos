@@ -128,7 +128,19 @@ export default function DashboardPage() {
       month: 'short' 
     });
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-4xl animate-spin">🌱</div>
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-64 space-y-4">
+      <div className="relative">
+        <img 
+          src="/logo_regacitos.png" 
+          alt="Cargando..." 
+          className="w-20 h-20 object-contain animate-pulse" 
+        />
+        <div className="absolute inset-0 border-4 border-brand-100 border-t-brand-500 rounded-full animate-spin"></div>
+      </div>
+      <p className="text-brand-600 font-bold text-sm animate-bounce">Cargando...</p>
+    </div>
+  )
 
   return (
     <div className="max-w-5xl">
@@ -139,16 +151,16 @@ export default function DashboardPage() {
 
       {/* Tarjetas Principales: 1 col en móvil, 2 en desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <StatCard label="Caja General" amount={stats.general} color="green" icon="💰" />
-        <StatCard label="Fondo Huellas" amount={stats.huellas} color="blue" icon="🌟" />
+        <StatCard label="Caja General" amount={stats.general} color="brand" icon="💰" />
+        <StatCard label="Fondo Huellas" amount={stats.huellas} color="luna" icon="🌟" />
       </div>
 
       {/* Tarjetas Secundarias: 1 col en móvil, 3 en desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <StatCard label="Total ingresos" amount={stats.totalIngresos} color="amber" icon="📈" />
+        <StatCard label="Total ingresos" amount={stats.totalIngresos} color="accent" icon="📈" />
         <StatCard label="Total egresos" amount={stats.totalGastos} color="red" icon="📉" />
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Niños activos</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Niñas y Niños activos</p>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Total inscritos</span>

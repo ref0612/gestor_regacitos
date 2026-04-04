@@ -72,7 +72,19 @@ export default function NinoDetailPage() {
     router.push('/dashboard/ninos')
   }
 
-  if (loading) return <div className="flex justify-center items-center h-64 text-4xl animate-spin">🌱</div>
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-64 space-y-4">
+      <div className="relative">
+        <img 
+          src="/logo_regacitos.png" 
+          alt="Cargando..." 
+          className="w-20 h-20 object-contain animate-pulse" 
+        />
+        <div className="absolute inset-0 border-4 border-brand-100 border-t-brand-500 rounded-full animate-spin"></div>
+      </div>
+      <p className="text-brand-600 font-bold text-sm animate-bounce">Cargando...</p>
+    </div>
+  )
   if (!nino)   return <div className="text-center py-20 text-gray-400">Niño no encontrado</div>
 
   const puedeEditar = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
