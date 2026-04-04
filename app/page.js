@@ -26,42 +26,63 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600 flex items-center justify-center p-4">
-      <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-brand-400/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="w-full max-w-sm relative">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
-            <span className="text-3xl">🌱</span>
+    <div className="min-h-screen bg-brand-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-brand-500 rounded-full blur-[120px] opacity-20"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-accent-500 rounded-full blur-[120px] opacity-20"></div>
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="flex flex-col items-center mb-8">
+          <div className="bg-white p-4 rounded-3xl shadow-xl mb-4 transform hover:rotate-3 transition-transform">
+            <img 
+              src="/logo_regacitos.png" 
+              alt="Logo Regacitos" 
+              className="w-24 h-24 object-contain"
+            />
           </div>
-          <h1 className="font-display text-3xl font-bold text-white tracking-tight">Regacitos</h1>
-          <p className="text-brand-200 text-sm mt-1">Sistema de Gestión</p>
+          <h1 className="text-4xl font-black text-white tracking-tight">Jardín Infantil Regacito</h1>
+          <p className="text-brand-200 font-medium">Medio Menor "B"</p>
         </div>
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 shadow-2xl">
-          <h2 className="text-white font-semibold text-lg mb-6">Iniciar sesión</h2>
+
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[2.5rem] shadow-2xl">
+          <h2 className="text-xl font-bold text-white mb-6">Iniciar sesión</h2>
           {error && (
             <div className="mb-4 p-3 bg-red-500/20 border border-red-400/30 rounded-xl text-red-200 text-sm">{error}</div>
           )}
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-brand-200 text-xs font-semibold uppercase tracking-wide mb-1.5">Correo</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              <label className="block text-[10px] font-bold text-brand-200 uppercase tracking-widest mb-2 ml-1">Correo</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-all"
                 placeholder="nombre@jardin.cl"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition" />
+              />
             </div>
+
             <div>
-              <label className="block text-brand-200 text-xs font-semibold uppercase tracking-wide mb-1.5">Contraseña</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+              <label className="block text-[10px] font-bold text-brand-200 uppercase tracking-widest mb-2 ml-1">Contraseña</label>
+              <input 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-accent-500 transition-all"
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition" />
+              />
             </div>
-            <button type="submit" disabled={loading}
-              className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-brand-950 font-bold py-3 rounded-xl transition-colors duration-150 text-sm mt-2">
-              {loading ? 'Ingresando...' : 'Entrar'}
+
+            <button 
+              type="submit"
+              className="w-full bg-accent-500 hover:bg-accent-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-accent-900/20 transform active:scale-95 transition-all mt-4"
+            >
+              ENTRAR
             </button>
           </form>
         </div>
-        <p className="text-center text-brand-300/60 text-xs mt-6">Jardín Infantil Regacitos · {new Date().getFullYear()}</p>
+
+        <p className="text-center text-brand-300/50 text-[10px] mt-8 uppercase font-bold tracking-[0.2em]">
+          Jardín Infantil Regacitos • 2026
+        </p>
       </div>
     </div>
   )
