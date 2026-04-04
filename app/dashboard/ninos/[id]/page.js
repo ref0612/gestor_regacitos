@@ -49,12 +49,19 @@ export default function NinoDetailPage() {
     setLoading(false)
   }
 
-  async function togglePago(mes) {
-    const actual = pagos.find(p => p.mes === mes)
+  async function togglePago(mesNombre) {
+    // Blindamos la variable para evitar el error de pagos.find is not a function
+    const listaPagos = Array.isArray(pagos) ? pagos : []
+    const actual = listaPagos.find(p => p.mes === mesNombre)
     const nuevoPagado = !(actual?.pagado || false)
+
     const { error } = await supabase
       .from('pagos_cuotas')
-      .upsert({ id_nino: id, mes, anio: ANIO_ACTUAL, pagado: nuevoPagado }, { onConflict: 'id_nino,mes,anio' })
+      .upsert(
+        { id_nino: id, mes: mesNombre, anio: ANIO_ACTUAL, pagado: nuevoPagado }, 
+        { onConflict: ['id_nino','mes','anio'] } // <-- REGLA CORRECTA
+      )
+
     if (error) { alert('Error: ' + error.message); return }
     fetchAll()
   }
@@ -119,7 +126,7 @@ export default function NinoDetailPage() {
         </div>
         <div className="space-y-2">
           {MESES.map(({ num, label }) => {
-            const p      = pagosMapa[num]
+            const p      = pagosMapa[label] // <-- USAR label, NO num
             const pagado = p?.pagado || false
             return (
               <div key={num} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
@@ -140,7 +147,7 @@ export default function NinoDetailPage() {
                   </div>
                 </div>
                 {puedeEditar ? (
-                  <button onClick={() => togglePago(num)}
+                  <button onClick={() => togglePago(label)} // <-- USAR label, NO num
                     className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
                       pagado ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-brand-600 text-white hover:bg-brand-700'
                     }`}>

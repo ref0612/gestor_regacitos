@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 
 const MESES_STR   = ['3','4','5','6','7','8','9','10','11','12']
-const MESES_LABEL = { '3':'Mar','4':'Abr','5':'May','6':'Jun','7':'Jul','8':'Ago','9':'Sep','10':'Oct','11':'Nov','12':'Dic' }
+const MESES_LABEL = { '3':'Marzo','4':'Abril','5':'Mayo','6':'Junio','7':'Julio','8':'Agosto','9':'Septiembre','10':'Octubre','11':'Noviembre','12':'Diciembre' }
 const ANIO_ACTUAL = new Date().getFullYear()
 
 const FORM_VACIO = { nombres: '', apellidos: '', rut: '', fecha_nacimiento: '', seguro_medico: '', info_contacto: '', id_apoderado: '' }
@@ -326,26 +326,37 @@ export default function NinosPage() {
     setLoading(false)
   }
 
-  async function togglePago(idNino, mes) {
-    const actual = pagos[idNino]?.[mes] || false
-    setPagos(prev => ({ ...prev, [idNino]: { ...prev[idNino], [mes]: !actual } }))
+  async function togglePago(idNino, mesNum) {
+    const nombreMes = MESES_LABEL[mesNum] // Convertimos el '3' en 'Marzo'
+    const actual = pagos[idNino]?.[nombreMes] || false
+
+    // Actualizamos la vista local primero
+    setPagos(prev => ({ ...prev, [idNino]: { ...prev[idNino], [nombreMes]: !actual } }))
+
+    // Enviamos el nombre del mes y usamos la regla 'unique_pago_mes_anio'
     const { error } = await supabase.from('pagos_cuotas')
-      .upsert({ id_nino: idNino, mes: String(mes), anio: ANIO_ACTUAL, pagado: !actual }, { onConflict: 'id_nino,mes,anio' })
+      .upsert(
+        { id_nino: idNino, mes: nombreMes, anio: ANIO_ACTUAL, pagado: !actual }, 
+        { onConflict: 'id_nino,mes,anio' }
+      )
+
     if (error) {
-      setPagos(prev => ({ ...prev, [idNino]: { ...prev[idNino], [mes]: actual } }))
+      // Si falla, revertimos el cambio en la vista
+      setPagos(prev => ({ ...prev, [idNino]: { ...prev[idNino], [nombreMes]: actual } }))
       alert('Error: ' + error.message)
     }
   }
 
   async function eliminarNino(nino) {
-    if (!confirm(`¿Eliminar a ${nino.nombres} ${nino.apellidos}?\nSe eliminarán también sus registros de cuotas.`)) return
+    if (!confirm(`¿Eliminar a ${nino.nombres} ${nino.apellidos}?
+Se eliminarán también sus registros de cuotas.`)) return
     await supabase.from('pagos_cuotas').delete().eq('id_nino', nino.id)
     await supabase.from('ninos').delete().eq('id', nino.id)
     fetchAll()
   }
 
   const filtered    = ninos.filter(n => `${n.nombres} ${n.apellidos} ${n.rut || ''}`.toLowerCase().includes(search.toLowerCase()))
-  const cuotasAlDia = (id) => MESES_STR.filter(m => pagos[id]?.[m]).length
+  const cuotasAlDia = (id) => MESES_STR.filter(m => pagos[id]?.[MESES_LABEL[m]]).length
   const puedeEditar = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
   const esAdmin     = perfil?.rol === 'Admin'
 
@@ -427,7 +438,7 @@ export default function NinosPage() {
                     {nino.rut && <p className="text-xs text-gray-400 font-mono">{nino.rut}</p>}
                   </td>
                   {MESES_STR.map(mes => {
-                    const pagado = pagos[nino.id]?.[mes] || false
+                    const pagado = pagos[nino.id]?.[MESES_LABEL[mes]] || false
                     return (
                       <td key={mes} className="px-1 py-3 text-center">
                         <button
