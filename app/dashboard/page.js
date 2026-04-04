@@ -48,7 +48,7 @@ export default function DashboardPage() {
 
     // 3. Traer Movimientos (Ingresos y Egresos manuales)
     const { data: movs } = await supabase
-      .from('movimientos').select('monto, destino, tipo, descripcion, fecha, id_categoria')
+      .from('movimientos').select('monto, destino, tipo, descripcion, fecha, comprobante_url')
       .order('fecha', { ascending: false })
 
     // 4. Traer Niños y Cuotas para morosidad
@@ -113,7 +113,18 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  const fmtDate = (d) => new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })
+  const fmt = (n) => 
+    new Intl.NumberFormat('es-CL', { 
+      style: 'currency', 
+      currency: 'CLP', 
+      maximumFractionDigits: 0 
+    }).format(n || 0);
+
+  const fmtDate = (d) => 
+    new Date(d).toLocaleDateString('es-CL', { 
+      day: '2-digit', 
+      month: 'short' 
+    });
 
   if (loading) return <div className="flex items-center justify-center h-64 text-4xl animate-spin">🌱</div>
 
@@ -152,26 +163,60 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="card shadow-sm bg-white border border-gray-100 p-6 rounded-2xl">
-        <h2 className="font-bold text-gray-800 mb-4">Últimos movimientos</h2>
+      <div className="card shadow-sm bg-white border border-gray-100 p-6 rounded-2xl mt-6">
+        <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span>📋</span> Historial de Transparencia
+        </h2>
         {movRecientes.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-8">Sin movimientos registrados</p>
         ) : (
           <div className="divide-y divide-gray-100">
             {movRecientes.map((m, i) => (
-              <div key={i} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">{m.tipo === 'Egreso' ? '📤' : '📥'}</span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{m.descripcion}</p>
-                    <p className="text-xs text-gray-400">
-                      {m.destino} · {fmtDate(m.fecha)}
+              <div key={i} className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  {/* Icono de tipo de movimiento */}
+                  <span className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg ${
+                    m.tipo === 'Egreso' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    {m.tipo === 'Egreso' ? '📤' : '📥'}
+                  </span>
+                  
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{m.descripcion}</p>
+                    <p className="text-xs text-gray-400 flex items-center gap-2">
+                      <span className={m.destino === 'Huellas' ? 'text-blue-500 font-medium' : 'text-brand-600 font-medium'}>
+                        {m.destino}
+                      </span>
+                      <span>•</span>
+                      {fmtDate(m.fecha)}
                     </p>
                   </div>
                 </div>
-                <span className={`text-sm font-bold tabular-nums ${m.tipo === 'Egreso' ? 'text-red-600' : 'text-emerald-600'}`}>
-                  {m.tipo === 'Egreso' ? '-' : '+'}{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(m.monto)}
-                </span>
+
+                <div className="flex items-center gap-4">
+                  {/* ICONO DE RECIBO CON LUPA (Solo si hay URL) */}
+                  {m.comprobante_url ? (
+                    <a 
+                      href={m.comprobante_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      title="Ver comprobante original"
+                      className="group relative flex items-center justify-center w-10 h-10 bg-gray-50 hover:bg-brand-50 rounded-xl border border-gray-100 transition-all"
+                    >
+                      <span className="text-xl">🧾</span>
+                      
+                    </a>
+                  ) : (
+                    <div className="w-10 h-10" /> // Espacio vacío para mantener la alineación
+                  )}
+
+                  {/* Monto */}
+                  <span className={`text-sm font-bold tabular-nums text-right min-w-[80px] ${
+                    m.tipo === 'Egreso' ? 'text-red-600' : 'text-emerald-600'
+                  }`}>
+                    {m.tipo === 'Egreso' ? '-' : '+'}{fmt(m.monto)}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

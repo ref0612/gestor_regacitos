@@ -37,12 +37,19 @@ export default function GastosPage() {
       let comprobante_url = null
       if (form.comprobante) {
         const ext  = form.comprobante.name.split('.').pop()
-        const path = `comprobantes/${Date.now()}.${ext}`
-        const { error: upErr } = await supabase.storage.from('comprobantes').upload(path, form.comprobante)
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(path)
-          comprobante_url = urlData.publicUrl
-        }
+        const path = `${Date.now()}.${ext}`
+
+        const { error: upErr } = await supabase.storage
+          .from('comprobantes')
+          .upload(path, form.comprobante)
+
+        if (upErr) throw new Error('Error al subir imagen: ' + upErr.message)
+
+        const { data: urlData } = supabase.storage
+          .from('comprobantes')
+          .getPublicUrl(path)
+
+        comprobante_url = urlData.publicUrl
       }
       const payload = {
         tipo:        form.tipo,

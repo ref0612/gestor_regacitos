@@ -312,7 +312,11 @@ export default function NinosPage() {
       const { data: p } = await supabase.from('perfiles').select('rol').eq('id', user.id).single()
       setPerfil(p)
     }
-    const { data: n } = await supabase.from('ninos').select('*').eq('activo', true).order('apellidos')
+    const { data: n } = await supabase
+      .from('ninos')
+      .select('*')
+      .eq('activo', true)
+      .order('apellidos', { ascending: true }); // Esto trae el orden desde la nube
     const { data: c } = await supabase.from('pagos_cuotas').select('id_nino, mes, pagado').eq('anio', ANIO_ACTUAL)
     const { data: a } = await supabase.from('perfiles').select('id, nombre_completo, email').eq('rol', 'Apoderado').order('nombre_completo')
     const mapa = {}
@@ -355,7 +359,11 @@ Se eliminarán también sus registros de cuotas.`)) return
     fetchAll()
   }
 
-  const filtered    = ninos.filter(n => `${n.nombres} ${n.apellidos} ${n.rut || ''}`.toLowerCase().includes(search.toLowerCase()))
+  // Filtrar por búsqueda y luego ordenar alfabéticamente por apellidos
+  const filtered = ninos
+    .filter(n => `${n.nombres} ${n.apellidos} ${n.rut || ''}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.apellidos.localeCompare(b.apellidos)); // Orden alfabético (A-Z)
+
   const cuotasAlDia = (id) => MESES_STR.filter(m => pagos[id]?.[MESES_LABEL[m]]).length
   const puedeEditar = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
   const esAdmin     = perfil?.rol === 'Admin'
