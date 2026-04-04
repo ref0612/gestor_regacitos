@@ -316,7 +316,8 @@ export default function NinosPage() {
       .from('ninos')
       .select('*')
       .eq('activo', true)
-      .order('apellidos', { ascending: true }); // Esto trae el orden desde la nube
+      .order('nombres', { ascending: true })   // Ahora el nombre es la prioridad 1
+      .order('apellidos', { ascending: true }); // El apellido es la prioridad 2
     const { data: c } = await supabase.from('pagos_cuotas').select('id_nino, mes, pagado').eq('anio', ANIO_ACTUAL)
     const { data: a } = await supabase.from('perfiles').select('id, nombre_completo, email').eq('rol', 'Apoderado').order('nombre_completo')
     const mapa = {}
@@ -361,9 +362,17 @@ Se eliminarán también sus registros de cuotas.`)) return
 
   // Filtrar por búsqueda y luego ordenar alfabéticamente por apellidos
   const filtered = ninos
-    .filter(n => `${n.nombres} ${n.apellidos} ${n.rut || ''}`.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.apellidos.localeCompare(b.apellidos)); // Orden alfabético (A-Z)
-
+    .filter(n => 
+      `${n.nombres} ${n.apellidos} ${n.rut || ''}`.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      // 1. Comparamos por Nombres primero
+      const compareNombres = a.nombres.localeCompare(b.nombres);
+      if (compareNombres !== 0) return compareNombres;
+      
+      // 2. Si los nombres son iguales (ej: dos "María"), comparamos apellidos
+      return a.apellidos.localeCompare(b.apellidos);
+    });
   const cuotasAlDia = (id) => MESES_STR.filter(m => pagos[id]?.[MESES_LABEL[m]]).length
   const puedeMarcarPagos = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero';
   const puedeGestionarNinos = perfil?.rol === 'Admin'; // Solo el Admin agrega/edita/borra
