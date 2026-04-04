@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
+const ANIO_ACTUAL = new Date().getFullYear()
+
 function StatCard({ label, amount, color, icon, sub }) {
   const fmt = (n) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
   const colors = {
@@ -33,14 +35,21 @@ export default function DashboardPage() {
   async function fetchAll() {
     const supabase = createClient()
     setLoading(true)
+
     const { data: pagos } = await supabase
       .from('pagos_cuotas').select('monto_general, monto_huellas, id_nino').eq('pagado', true)
+
     const { data: movs } = await supabase
       .from('movimientos').select('monto, destino, tipo, descripcion, fecha, categorias_gastos(nombre)')
       .order('fecha', { ascending: false }).limit(8)
-    const { data: ninos }  = await supabase.from('ninos').select('id').eq('activo', true)
-    const { data: cuotas } = await supabase.from('pagos_cuotas').select('id_nino, pagado')
 
+    const { data: ninos } = await supabase.from('ninos').select('id').eq('activo', true)
+
+    // Traer cuotas del año actual con mes para calcular morosidad correctamente
+    const { data: cuotas } = await supabase
+      .from('pagos_cuotas').select('id_nino, mes, pagado').eq('anio', ANIO_ACTUAL)
+
+    // Saldos financieros
     let totalGeneral = pagos?.reduce((a, c) => a + Number(c.monto_general || 0), 0) || 0
     let totalHuellas = pagos?.reduce((a, c) => a + Number(c.monto_huellas || 0), 0) || 0
     let gastoGeneral = 0, gastoHuellas = 0
@@ -48,12 +57,39 @@ export default function DashboardPage() {
       if (e.destino === 'General') gastoGeneral += Number(e.monto)
       else if (e.destino === 'Huellas') gastoHuellas += Number(e.monto)
     })
-    const ingresosExtra = movs?.filter(m => m.tipo === 'Ingreso').reduce((a, m) => a + Number(m.monto), 0) || 0
+    const ingresosExtra = movs?.filter(m => m.tipo === 'Ingreso')
+      .reduce((a, m) => a + Number(m.monto), 0) || 0
 
-    setStats({ general: totalGeneral - gastoGeneral + ingresosExtra, huellas: totalHuellas - gastoHuellas, totalGastos: gastoGeneral + gastoHuellas, totalIngresos: totalGeneral + totalHuellas })
+    setStats({
+      general:       totalGeneral - gastoGeneral + ingresosExtra,
+      huellas:       totalHuellas - gastoHuellas,
+      totalGastos:   gastoGeneral + gastoHuellas,
+      totalIngresos: totalGeneral + totalHuellas,
+    })
+
+    // ── Lógica de morosidad ──────────────────────────────────────────────
+    // Solo se consideran morosos los meses que ya vencieron (mar → mes actual)
+    const mesActual    = new Date().getMonth() + 1  // 1-12
+    const mesesDebidos = ['3','4','5','6','7','8','9','10','11','12']
+      .filter(m => parseInt(m) <= mesActual)
+
+    // Mapa de pagos por niño: { id_nino: { '3': true, '4': false } }
+    const pagosMapa = {}
+    cuotas?.forEach(({ id_nino, mes, pagado }) => {
+      if (!pagosMapa[id_nino]) pagosMapa[id_nino] = {}
+      pagosMapa[id_nino][String(mes)] = pagado
+    })
+
+    // Moroso = tiene algún mes vencido sin pagar (o sin registro)
+    const esMoroso = (id) => mesesDebidos.some(m => !pagosMapa[id]?.[m])
+
     const ninoIds = ninos?.map(n => n.id) || []
-    const pendientes = new Set(cuotas?.filter(c => !c.pagado).map(c => c.id_nino))
-    setNinos({ total: ninoIds.length, alDia: ninoIds.filter(id => !pendientes.has(id)).length, conDeuda: ninoIds.filter(id => pendientes.has(id)).length })
+    setNinos({
+      total:    ninoIds.length,
+      alDia:    ninoIds.filter(id => !esMoroso(id)).length,
+      conDeuda: ninoIds.filter(id =>  esMoroso(id)).length,
+    })
+
     setMovs(movs || [])
     setLoading(false)
   }
@@ -69,22 +105,35 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900">Resumen Financiero</h1>
         <p className="text-gray-500 text-sm mt-1">Estado actual del jardín</p>
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <StatCard label="Caja General (Operativa)" amount={stats.general}  color="green" icon="💰" sub="Disponible para gastos operativos" />
         <StatCard label="Fondo Dejando Huellas"    amount={stats.huellas}  color="blue"  icon="🌟" sub="Pozo para la fiesta de fin de año" />
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard label="Total ingresos (cuotas)" amount={stats.totalIngresos} color="amber" icon="📈" />
         <StatCard label="Total egresos"           amount={stats.totalGastos}   color="red"   icon="📉" />
+
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Niños activos</p>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-gray-600">Total inscritos</span><span className="font-bold">{ninosResumen.total}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-emerald-600">Al día</span><span className="font-bold text-emerald-700">{ninosResumen.alDia}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-red-500">Con cuotas pendientes</span><span className="font-bold text-red-600">{ninosResumen.conDeuda}</span></div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Total inscritos</span>
+              <span className="font-bold">{ninosResumen.total}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-emerald-600">Al día</span>
+              <span className="font-bold text-emerald-700">{ninosResumen.alDia}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-red-500">Morosos</span>
+              <span className="font-bold text-red-600">{ninosResumen.conDeuda}</span>
+            </div>
           </div>
         </div>
       </div>
+
       <div className="card">
         <h2 className="font-bold text-gray-800 mb-4">Últimos movimientos</h2>
         {movRecientes.length === 0 ? (
@@ -97,7 +146,9 @@ export default function DashboardPage() {
                   <span className="text-lg">{m.tipo === 'Egreso' ? '📤' : '📥'}</span>
                   <div>
                     <p className="text-sm font-medium text-gray-800">{m.descripcion}</p>
-                    <p className="text-xs text-gray-400">{m.categorias_gastos?.nombre || m.destino} · {fmtDate(m.fecha)}</p>
+                    <p className="text-xs text-gray-400">
+                      {m.categorias_gastos?.nombre || m.destino} · {fmtDate(m.fecha)}
+                    </p>
                   </div>
                 </div>
                 <span className={`text-sm font-bold tabular-nums ${m.tipo === 'Egreso' ? 'text-red-600' : 'text-emerald-600'}`}>
