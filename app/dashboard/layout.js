@@ -101,16 +101,18 @@ export default function DashboardLayout({ children }) {
         </div>
       )}
 
-      <div className="flex-1 md:ml-60 flex flex-col min-h-screen">
-        {/* Mobile topbar */}
+      <div className="flex-1 md:ml-60 flex flex-col min-h-screen w-full">
+        {/* Header móvil */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-20">
           <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 text-xl">☰</button>
           <span className="font-bold text-brand-900">Regacitos</span>
           <div className="w-9" />
         </header>
 
-        <main className="flex-1 p-5 md:p-8">
-          {children}
+        <main className="flex-1 p-3 sm:p-5 md:p-8 w-full max-w-full overflow-x-hidden">
+          <div className="mx-auto w-full max-w-6xl">
+            {children}
+          </div>
         </main>
       </div>
     </div>

@@ -13,12 +13,14 @@ function StatCard({ label, amount, color, icon, sub }) {
     red:   'bg-red-50 border-red-200 text-red-900',
   }
   return (
-    <div className={`rounded-2xl border p-6 ${colors[color]}`}>
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-xs font-bold uppercase tracking-wider opacity-60">{label}</p>
-        <span className="text-2xl">{icon}</span>
+    <div className={`rounded-2xl border p-4 sm:p-6 w-full ${colors[color]}`}>
+      <div className="flex items-start justify-between mb-2">
+        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider opacity-60 truncate">{label}</p>
+        <span className="text-xl sm:text-2xl">{icon}</span>
       </div>
-      <p className="text-3xl font-bold tabular-nums">{fmt(amount)}</p>
+      <p className="text-xl sm:text-3xl font-bold tabular-nums truncate">
+        {fmt(amount)}
+      </p>
       {sub && <p className="text-xs opacity-60 mt-1">{sub}</p>}
     </div>
   )
@@ -135,15 +137,16 @@ export default function DashboardPage() {
         <p className="text-gray-500 text-sm mt-1">Estado actual del jardín al {ANIO_ACTUAL}</p>
       </div>
 
+      {/* Tarjetas Principales: 1 col en móvil, 2 en desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <StatCard label="Caja General (Operativa)" amount={stats.general}  color="green" icon="💰" sub="Disponible para gastos operativos" />
-        <StatCard label="Fondo Dejando Huellas"    amount={stats.huellas}  color="blue"  icon="🌟" sub="Pozo para la fiesta de fin de año" />
+        <StatCard label="Caja General" amount={stats.general} color="green" icon="💰" />
+        <StatCard label="Fondo Huellas" amount={stats.huellas} color="blue" icon="🌟" />
       </div>
 
+      {/* Tarjetas Secundarias: 1 col en móvil, 3 en desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard label="Total ingresos" amount={stats.totalIngresos} color="amber" icon="📈" />
-        <StatCard label="Total egresos"           amount={stats.totalGastos}   color="red"   icon="📉" />
-
+        <StatCard label="Total egresos" amount={stats.totalGastos} color="red" icon="📉" />
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Niños activos</p>
           <div className="space-y-2">

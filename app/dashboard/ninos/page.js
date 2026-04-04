@@ -365,8 +365,10 @@ Se eliminarán también sus registros de cuotas.`)) return
     .sort((a, b) => a.apellidos.localeCompare(b.apellidos)); // Orden alfabético (A-Z)
 
   const cuotasAlDia = (id) => MESES_STR.filter(m => pagos[id]?.[MESES_LABEL[m]]).length
-  const puedeEditar = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
-  const esAdmin     = perfil?.rol === 'Admin'
+  const puedeMarcarPagos = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero';
+  const puedeGestionarNinos = perfil?.rol === 'Admin'; // Solo el Admin agrega/edita/borra
+  const puedeEditar = puedeGestionarNinos; // Referencia que falta
+  const esAdmin = perfil?.rol === 'Admin'
 
   if (loading) return <div className="flex justify-center items-center h-64 text-4xl animate-spin">🌱</div>
 
@@ -391,12 +393,12 @@ Se eliminarán también sus registros de cuotas.`)) return
           <h1 className="text-2xl font-bold text-gray-900">Niños</h1>
           <p className="text-gray-500 text-sm mt-1">{ninos.length} inscritos activos · {ANIO_ACTUAL}</p>
         </div>
-        {puedeEditar && (
+        {puedeGestionarNinos && (
           <div className="flex gap-3">
-            <button onClick={() => setModalImportar(true)} className="btn-secondary flex items-center gap-2">
-              📂 Importar Excel
+            <button onClick={() => setModalImportar(true)} className="btn-secondary flex items-center gap-2 text-xs sm:text-sm">
+              📂 Importar
             </button>
-            <button onClick={() => setModalNino('nuevo')} className="btn-primary flex items-center gap-2">
+            <button onClick={() => setModalNino('nuevo')} className="btn-primary flex items-center gap-2 text-xs sm:text-sm">
               + Agregar niño
             </button>
           </div>
@@ -409,88 +411,125 @@ Se eliminarán también sus registros de cuotas.`)) return
           value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Tabla grilla */}
-      <div className="card p-0 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="text-left px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wide sticky left-0 bg-gray-50 min-w-[200px]">Nombre</th>
-              {MESES_STR.map(m => (
-                <th key={m} className="px-2 py-3 font-semibold text-gray-400 text-xs text-center min-w-[44px]">{MESES_LABEL[m]}</th>
-              ))}
-              <th className="px-3 py-3 font-semibold text-gray-400 text-xs text-center">Pagadas</th>
-              <th className="px-3 py-3 text-gray-400 text-xs text-center">Ficha</th>
-              {puedeEditar && <th className="px-3 py-3 text-gray-400 text-xs text-center">Acciones</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={puedeEditar ? 15 : 14} className="text-center py-16 text-gray-400">
-                  {ninos.length === 0
-                    ? <div className="space-y-2">
-                        <p className="text-4xl">👧</p>
-                        <p className="font-medium">No hay niños registrados</p>
-                        <p className="text-xs">Usa "Agregar niño" o "Importar Excel" para comenzar</p>
-                      </div>
-                    : 'Sin resultados para la búsqueda'}
-                </td>
-              </tr>
-            )}
-            {filtered.map(nino => {
-              const alDia = cuotasAlDia(nino.id)
-              return (
-                <tr key={nino.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3 sticky left-0 bg-white whitespace-nowrap">
-                    <p className="font-medium text-gray-800">{nino.nombres} {nino.apellidos}</p>
-                    {nino.rut && <p className="text-xs text-gray-400 font-mono">{nino.rut}</p>}
-                  </td>
-                  {MESES_STR.map(mes => {
-                    const pagado = pagos[nino.id]?.[MESES_LABEL[mes]] || false
+      {/* CONTENEDOR DE LA LISTA */}
+      <div className="mt-6 w-full max-w-full">
+        {/* 📱 VISTA MÓVIL (Tarjetas - iPhone SE friendly) */}
+        <div className="grid grid-cols-1 gap-4 md:hidden w-full">
+          {filtered.map(nino => {
+            const alDia = cuotasAlDia(nino.id);
+            return (
+              <div key={nino.id} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm w-full">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-900 truncate text-sm">{nino.nombres} {nino.apellidos}</p>
+                    <p className="text-[10px] text-gray-400 font-mono uppercase">{nino.rut || 'Sin RUT'}</p>
+                  </div>
+                  
+                  {/* El Tesorero YA NO ve este botón, solo el Admin */}
+                  {puedeGestionarNinos && (
+                    <button 
+                      onClick={() => setModalNino(nino)}
+                      className="ml-2 p-2 bg-gray-50 rounded-lg border border-gray-100 text-sm"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
+
+                {/* Grilla de 5 columnas para meses (2 filas de 5 = 10 meses) */}
+                <div className="grid grid-cols-5 gap-1.5 mb-4">
+                  {MESES_STR.map(mesNum => {
+                    const pagado = pagos[nino.id]?.[MESES_LABEL[mesNum]] || false;
                     return (
-                      <td key={mes} className="px-1 py-3 text-center">
+                      <div key={mesNum} className="flex flex-col items-center">
                         <button
-                          onClick={() => puedeEditar && togglePago(nino.id, mes)}
-                          disabled={!puedeEditar}
-                          title={puedeEditar ? 'Clic para cambiar' : (pagado ? 'Pagado' : 'Pendiente')}
-                          className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
-                            pagado 
-                              ? 'bg-emerald-100 text-emerald-700' 
-                              : 'bg-gray-100 text-gray-400'
-                          } ${!puedeEditar ? 'cursor-default' : 'cursor-pointer'}`}>
+                          disabled={!puedeMarcarPagos}
+                          onClick={() => puedeMarcarPagos && togglePago(nino.id, mesNum)}
+                          className={`w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold border transition-all ${
+                            pagado ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-gray-50 border-gray-200 text-gray-400'
+                          }`}
+                        >
+                          {pagado ? '✓' : MESES_LABEL[mesNum].substring(0, 1)}
+                        </button>
+                        <span className="text-[8px] mt-1 text-gray-400 uppercase font-bold">{MESES_LABEL[mesNum].substring(0, 3)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex gap-2">
+                  <Link href={`/dashboard/ninos/${nino.id}`} className="flex-1 text-center py-2 bg-brand-50 text-brand-700 text-xs font-bold rounded-lg border border-brand-100">
+                    Ver Ficha →
+                  </Link>
+                  {esAdmin && (
+                    <button 
+                      onClick={() => eliminarNino(nino)}
+                      className="p-2 bg-red-50 text-red-500 rounded-lg border border-red-100 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 💻 VISTA ESCRITORIO (Tabla original mejorada) */}
+        <div className="hidden md:block card p-0 overflow-x-auto border-gray-200 shadow-sm rounded-2xl">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-5 py-3 font-semibold text-gray-500 text-xs uppercase sticky left-0 bg-gray-50 z-10">Nombre</th>
+                {MESES_STR.map(m => (
+                  <th key={m} className="px-2 py-3 font-semibold text-gray-400 text-xs text-center">{MESES_LABEL[m]}</th>
+                ))}
+                <th className="px-3 py-3 text-gray-400 text-xs text-center">Pagos</th>
+                <th className="px-3 py-3 text-gray-400 text-xs text-center">Ficha</th>
+                {puedeEditar && <th className="px-3 py-3 text-gray-400 text-xs text-center">Acciones</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 bg-white">
+              {filtered.map(nino => (
+                <tr key={nino.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-5 py-3 sticky left-0 bg-white border-r border-gray-50">
+                    <p className="font-medium text-gray-800 text-sm truncate max-w-[150px]">{nino.nombres} {nino.apellidos}</p>
+                  </td>
+                  {MESES_STR.map(mesNum => {
+                    const pagado = pagos[nino.id]?.[MESES_LABEL[mesNum]] || false;
+                    return (
+                      <td key={mesNum} className="px-1 py-3 text-center">
+                        <button
+                          onClick={() => puedeMarcarPagos && togglePago(nino.id, mesNum)}
+                          disabled={!puedeMarcarPagos}
+                          className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                            pagado ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-50 text-gray-300'
+                          } ${!puedeMarcarPagos ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}
+                        >
                           {pagado ? '✓' : '·'}
                         </button>
                       </td>
-                    )
+                    );
                   })}
-                  <td className="px-3 py-3 text-center">
-                    <span className={`text-sm font-bold tabular-nums ${alDia === 10 ? 'text-emerald-600' : alDia === 0 ? 'text-red-500' : 'text-amber-600'}`}>
-                      {alDia}/10
-                    </span>
+                  <td className="px-3 py-3 text-center font-bold text-xs">
+                    {cuotasAlDia(nino.id)}/10
                   </td>
                   <td className="px-3 py-3 text-center">
-                    <Link href={`/dashboard/ninos/${nino.id}`}
-                      className="text-brand-700 hover:text-brand-900 text-xs font-semibold">
-                      Ver →
-                    </Link>
+                    <Link href={`/dashboard/ninos/${nino.id}`} className="text-brand-600 hover:underline text-xs font-bold">Ver →</Link>
                   </td>
-                  {puedeEditar && (
+                  {puedeGestionarNinos && (
                     <td className="px-3 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => setModalNino(nino)} title="Editar"
-                          className="text-gray-400 hover:text-brand-600 transition-colors text-sm">✏️</button>
-                        {esAdmin && (
-                          <button onClick={() => eliminarNino(nino)} title="Eliminar"
-                            className="text-gray-300 hover:text-red-500 transition-colors text-sm">✕</button>
-                        )}
+                        <button onClick={() => setModalNino(nino)} title="Editar Ficha" className="p-1 hover:bg-gray-100 rounded">✏️</button>
+                        {esAdmin && <button onClick={() => eliminarNino(nino)} title="Eliminar" className="p-1 hover:bg-gray-100 rounded text-red-500">✕</button>}
                       </div>
                     </td>
                   )}
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
