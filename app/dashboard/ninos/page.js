@@ -452,9 +452,11 @@ Se eliminarán también sus registros de cuotas.`)) return
                         <button
                           onClick={() => puedeEditar && togglePago(nino.id, mes)}
                           disabled={!puedeEditar}
-                          title={pagado ? 'Pagado · clic para revertir' : 'Pendiente · clic para marcar'}
-                          className={`w-8 h-8 rounded-lg text-sm font-bold transition-all duration-150 ${
-                            pagado ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
+                          title={puedeEditar ? 'Clic para cambiar' : (pagado ? 'Pagado' : 'Pendiente')}
+                          className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
+                            pagado 
+                              ? 'bg-emerald-100 text-emerald-700' 
+                              : 'bg-gray-100 text-gray-400'
                           } ${!puedeEditar ? 'cursor-default' : 'cursor-pointer'}`}>
                           {pagado ? '✓' : '·'}
                         </button>

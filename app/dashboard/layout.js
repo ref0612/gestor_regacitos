@@ -5,10 +5,10 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const NAV = [
-  { href: '/dashboard',                     label: 'Resumen',       icon: '📊', roles: ['Admin','Tesorero','Apoderado'] },
-  { href: '/dashboard/ninos',               label: 'Niños',         icon: '👧', roles: ['Admin','Tesorero'] },
-  { href: '/dashboard/gastos',              label: 'Finanzas',        icon: '🧾', roles: ['Admin','Tesorero'] },
-  { href: '/dashboard/admin',               label: 'Usuarios',      icon: '👥', roles: ['Admin'] },
+  { href: '/dashboard',         label: 'Resumen',      icon: '📊', roles: ['Admin','Tesorero','Apoderado'] },
+  { href: '/dashboard/ninos',   label: 'Niños',        icon: '👧', roles: ['Admin','Tesorero','Apoderado'] },
+  { href: '/dashboard/gastos',  label: 'Finanzas',     icon: '🧾', roles: ['Admin','Tesorero'] },
+  { href: '/dashboard/admin',   label: 'Usuarios',     icon: '👥', roles: ['Admin'] },
   { href: '/dashboard/admin/configuracion', label: 'Configuración', icon: '⚙️', roles: ['Admin'] },
 ]
 

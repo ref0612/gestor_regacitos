@@ -59,7 +59,7 @@ export default function NinoDetailPage() {
       .from('pagos_cuotas')
       .upsert(
         { id_nino: id, mes: mesNombre, anio: ANIO_ACTUAL, pagado: nuevoPagado }, 
-        { onConflict: ['id_nino','mes','anio'] } // <-- REGLA CORRECTA
+        { onConflict: 'id_nino,mes,anio' } // <-- REGLA CORRECTA
       )
 
     if (error) { alert('Error: ' + error.message); return }
