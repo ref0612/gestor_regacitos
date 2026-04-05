@@ -2,10 +2,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
-export default function NinoDetailPage({ params }) {
+export default function NinoDetailPage() {
+  const params = useParams()
   const [nino, setNino] = useState(null)
   const [pagos, setPagos] = useState([])
   const [loading, setLoading] = useState(true)

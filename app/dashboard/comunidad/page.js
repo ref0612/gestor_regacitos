@@ -31,6 +31,7 @@ export default function ComunidadPage() {
 
   const [mostrarFormAnuncio, setMostrarFormAnuncio] = useState(false)
   const [nuevoAnuncio, setNuevoAnuncio] = useState({ titulo: '', contenido: '' })
+  const [editandoAnuncio, setEditandoAnuncio] = useState(null) // null | objeto anuncio
 
   // --- ESTADOS PARA EL MODAL DEL CALENDARIO ---
   const [eventoModal, setEventoModal] = useState(null) // null = cerrado, object = abierto
@@ -74,6 +75,22 @@ export default function ComunidadPage() {
     })
     setNuevoAnuncio({ titulo: '', contenido: '' })
     setMostrarFormAnuncio(false)
+    fetchData()
+  }
+
+  async function handleEditarAnuncio(e) {
+    e.preventDefault()
+    if (!editandoAnuncio.titulo || !editandoAnuncio.contenido) return
+    await supabase.from('comunidad_anuncios')
+      .update({ titulo: editandoAnuncio.titulo, contenido: editandoAnuncio.contenido })
+      .eq('id', editandoAnuncio.id)
+    setEditandoAnuncio(null)
+    fetchData()
+  }
+
+  async function handleEliminarAnuncio(id) {
+    if (!confirm('¿Eliminar este aviso?')) return
+    await supabase.from('comunidad_anuncios').delete().eq('id', id)
     fetchData()
   }
 
@@ -247,12 +264,50 @@ export default function ComunidadPage() {
                   <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed mb-4">{anuncio.contenido}</p>
                   <div className="pt-4 border-t border-gray-50 flex justify-between items-center text-[10px] uppercase font-bold text-gray-400">
                     <span className="flex items-center gap-1">✍️ {anuncio.autor}</span>
-                    <span>{new Date(anuncio.fecha_publicacion).toLocaleDateString('es-CL')}</span>
+                    <div className="flex items-center gap-3">
+                      <span>{new Date(anuncio.fecha_publicacion).toLocaleDateString('es-CL')}</span>
+                      {esAdmin && (
+                        <>
+                          <button onClick={() => setEditandoAnuncio({ ...anuncio })}
+                            className="text-brand-500 hover:text-brand-700 transition-colors">✏️</button>
+                          <button onClick={() => handleEliminarAnuncio(anuncio.id)}
+                            className="text-red-400 hover:text-red-600 transition-colors">✕</button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
             )}
           </div>
+
+          {/* Modal editar anuncio */}
+          {editandoAnuncio && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900">Editar aviso</h3>
+                  <button onClick={() => setEditandoAnuncio(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <form onSubmit={handleEditarAnuncio} className="space-y-4">
+                  <div>
+                    <label className="label">Título</label>
+                    <input required className="input" value={editandoAnuncio.titulo}
+                      onChange={e => setEditandoAnuncio({ ...editandoAnuncio, titulo: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Contenido</label>
+                    <textarea required rows={4} className="input resize-none" value={editandoAnuncio.contenido}
+                      onChange={e => setEditandoAnuncio({ ...editandoAnuncio, contenido: e.target.value })} />
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setEditandoAnuncio(null)} className="btn-secondary flex-1">Cancelar</button>
+                    <button type="submit" className="btn-primary flex-1">Guardar</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* =========================================
