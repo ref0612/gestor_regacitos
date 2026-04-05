@@ -94,6 +94,7 @@ function RichEditor({ value, onChange, className = '' }) {
 
 export default function ComunidadPage() {
   const [perfil, setPerfil] = useState(null)
+  const [userId, setUserId]   = useState(null)
   const [anuncios, setAnuncios] = useState([])
   const [eventos, setEventos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -117,6 +118,7 @@ export default function ComunidadPage() {
     if (user) {
       const { data: p } = await supabase.from('perfiles').select('*').eq('id', user.id).single()
       setPerfil(p)
+      setUserId(user.id)
     }
 
     const { data: dataAnuncios } = await supabase.from('comunidad_anuncios').select('*').order('fecha_publicacion', { ascending: false })
@@ -141,7 +143,7 @@ export default function ComunidadPage() {
     e.preventDefault()
     if (!nuevoAnuncio.titulo || !nuevoAnuncio.contenido) return
     await supabase.from('comunidad_anuncios').insert({
-      titulo: nuevoAnuncio.titulo, contenido: nuevoAnuncio.contenido, autor: perfil?.nombre_completo || 'Administración'
+      titulo: nuevoAnuncio.titulo, contenido: nuevoAnuncio.contenido, autor: perfil?.nombre_completo || 'Administración', id_autor: userId
     })
     setNuevoAnuncio({ titulo: '', contenido: '' })
     setMostrarFormAnuncio(false)
@@ -166,7 +168,14 @@ export default function ComunidadPage() {
   }
 
   // --- LÓGICA DEL CALENDARIO (Google Calendar Style) ---
-  const esAdmin = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
+  const esAdmin       = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
+  const puedePublicar = esAdmin || perfil?.rol === 'Secretario'
+  // Secretario solo edita/elimina sus propios avisos; Admin/Tesorero pueden con todos
+  const puedeEditarAnuncio = (anuncio) => {
+    if (esAdmin) return true
+    if (perfil?.rol === 'Secretario') return anuncio.id_autor === userId
+    return false
+  }
 
   // Al hacer clic en un cuadro de un día vacío
   const handleSelectSlot = ({ start }) => {
@@ -306,7 +315,7 @@ export default function ComunidadPage() {
             <h2 className="font-black text-gray-800 flex items-center gap-2">
               <span>📌</span> Cartelera
             </h2>
-            {esAdmin && (
+            {puedePublicar && (
               <button 
                 onClick={() => setMostrarFormAnuncio(!mostrarFormAnuncio)}
                 className="bg-brand-50 hover:bg-brand-100 text-brand-600 text-xs font-bold px-3 py-2 rounded-xl transition-colors border border-brand-100"
@@ -356,7 +365,7 @@ export default function ComunidadPage() {
                   <span>✍️ {anuncioVista.autor}</span>
                   <div className="flex items-center gap-3">
                     <span>{new Date(anuncioVista.fecha_publicacion).toLocaleDateString('es-CL')}</span>
-                    {esAdmin && (
+                    {puedeEditarAnuncio(anuncioVista) && (
                       <>
                         <button
                           onClick={() => { setEditandoAnuncio({ ...anuncioVista }); setAnuncioVista(null) }}
@@ -459,7 +468,7 @@ export default function ComunidadPage() {
                 eventPropGetter={eventStyleGetter}
                 views={['month']} // Limitamos a mes para mantenerlo simple como un mural
                 defaultView="month"
-                selectable={true}
+                selectable={puedePublicar}
                 onSelectSlot={handleSelectSlot}
                 onSelectEvent={handleSelectEvent}
                 // Pass the date and navigation handler
@@ -492,7 +501,7 @@ export default function ComunidadPage() {
                 <div className="col-span-2">
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Título del Evento</label>
                   <input 
-                    type="text" required disabled={!esAdmin}
+                    type="text" required disabled={!puedePublicar}
                     value={eventoModal.titulo} onChange={e => setEventoModal({...eventoModal, titulo: e.target.value})} 
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white" 
                     placeholder="Ej: Día del Carabinero"
@@ -502,7 +511,7 @@ export default function ComunidadPage() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Fecha</label>
                   <input 
-                    type="date" required disabled={!esAdmin}
+                    type="date" required disabled={!puedePublicar}
                     value={eventoModal.fecha} onChange={e => setEventoModal({...eventoModal, fecha: e.target.value})} 
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white" 
                   />
@@ -511,7 +520,7 @@ export default function ComunidadPage() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Tipo</label>
                   <select 
-                    value={eventoModal.tipo} disabled={!esAdmin}
+                    value={eventoModal.tipo} disabled={!puedePublicar}
                     onChange={e => setEventoModal({...eventoModal, tipo: e.target.value})} 
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white"
                   >
@@ -525,7 +534,7 @@ export default function ComunidadPage() {
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Descripción / Detalles</label>
                 <textarea 
-                  rows="3" disabled={!esAdmin}
+                  rows="3" disabled={!puedePublicar}
                   value={eventoModal.descripcion} onChange={e => setEventoModal({...eventoModal, descripcion: e.target.value})} 
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-none disabled:bg-white" 
                   placeholder="Detalles sobre vestimenta, materiales a llevar, etc..."
@@ -534,7 +543,7 @@ export default function ComunidadPage() {
 
               {/* Botones según rol */}
               <div className="pt-4 border-t border-gray-100 flex gap-3">
-                {esAdmin ? (
+                {puedePublicar ? (
                   <>
                     {!eventoModal.isNew && (
                       <button type="button" onClick={handleBorrarEvento} className="py-3 px-4 text-red-500 font-bold hover:bg-red-50 rounded-xl transition-colors border border-red-100">

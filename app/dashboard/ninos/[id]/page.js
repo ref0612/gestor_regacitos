@@ -51,7 +51,7 @@ export default function NinoDetailPage() {
   }
 
   async function togglePago(mesNombre, mesIdx) {
-    if (!puedeEditar) return;
+    if (!puedeToggle) return;
     const mesNum = mesIdx + 3   // Marzo=3, Abril=4, ...
     const pagoExistente = pagos.find(p => p.mes === mesNombre);
     if (pagoExistente) {
@@ -98,8 +98,9 @@ export default function NinoDetailPage() {
     setGuardando(false)
   }
 
-  const puedeEditar = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
-  const esAdmin = perfil?.rol === 'Admin'
+  const puedeEditar  = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero' || perfil?.rol === 'Secretario'
+  const puedeToggle  = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
+  const esAdmin      = perfil?.rol === 'Admin'
 
   // Buscar el nombre del apoderado actual para mostrarlo en la ficha
   const nombreApoderadoActual = listaApoderados.find(a => a.id === nino?.id_apoderado)?.nombre_completo || 'No asignado'
@@ -236,7 +237,7 @@ export default function NinoDetailPage() {
                         </span>
                       )}
 
-                      {puedeEditar && (
+                      {puedeToggle && (
                         <button 
                           onClick={() => togglePago(mes, idx)}
                           className={`flex-1 sm:flex-none text-[10px] font-black px-6 py-2 rounded-xl uppercase transition-all shadow-sm border ${

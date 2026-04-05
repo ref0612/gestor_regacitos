@@ -435,10 +435,10 @@ Se eliminarán también sus registros de cuotas.`)) return
     });
 
   const cuotasAlDia = (id) => MESES_STR.filter(m => pagos[id]?.[MESES_LABEL[m]]).length
-  const puedeMarcarPagos = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero';
-  const puedeGestionarNinos = perfil?.rol === 'Admin'; 
-  const puedeEditar = puedeGestionarNinos; 
-  const esAdmin = perfil?.rol === 'Admin'
+  const puedeMarcarPagos    = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
+  const puedeGestionarNinos = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero' || perfil?.rol === 'Secretario'
+  const puedeEditar         = puedeGestionarNinos
+  const esAdmin             = perfil?.rol === 'Admin'
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-64 space-y-4">

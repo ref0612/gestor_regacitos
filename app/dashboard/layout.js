@@ -5,22 +5,103 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const NAV = [
-  { href: '/dashboard',                     label: 'Resumen',        icon: '📊', roles: ['Admin','Tesorero','Apoderado'] },
-  { href: '/dashboard/ninos',               label: 'Niñas y Niños',  icon: '👧', roles: ['Admin','Tesorero','Apoderado'] },
+  { href: '/dashboard',                     label: 'Resumen',        icon: '📊', roles: ['Admin','Tesorero','Secretario','Apoderado'] },
+  { href: '/dashboard/ninos',               label: 'Niñas y Niños',  icon: '👧', roles: ['Admin','Tesorero','Secretario','Apoderado'] },
   { href: '/dashboard/gastos',              label: 'Finanzas',       icon: '🧾', roles: ['Admin','Tesorero'] },
-  { href: '/dashboard/resumen',             label: 'Reporte Mensual',icon: '📋', roles: ['Admin','Tesorero'] },
-  { href: '/dashboard/comunidad',           label: 'Comunidad',      icon: '📢', roles: ['Admin','Tesorero','Apoderado'] },
-  { href: '/dashboard/admin',               label: 'Usuarios',       icon: '👥', roles: ['Admin'] },
+  { href: '/dashboard/resumen',             label: 'Reporte Mensual',icon: '📋', roles: ['Admin','Tesorero','Secretario'] },
+  { href: '/dashboard/comunidad',           label: 'Comunidad',      icon: '📢', roles: ['Admin','Tesorero','Secretario','Apoderado'] },
+  { href: '/dashboard/admin',               label: 'Usuarios',       icon: '👥', roles: ['Admin','Secretario'] },
   { href: '/dashboard/admin/configuracion', label: 'Configuración',  icon: '⚙️', roles: ['Admin'] },
 ]
 
 function RolBadge({ rol }) {
   const cls = {
-    Admin:    'bg-brand-100 text-brand-800',
-    Tesorero: 'bg-blue-100 text-blue-800',
-    Apoderado:'bg-emerald-100 text-emerald-800',
+    Admin:      'bg-brand-100 text-brand-800',
+    Tesorero:   'bg-blue-100 text-blue-800',
+    Secretario: 'bg-violet-100 text-violet-800',
+    Apoderado:  'bg-emerald-100 text-emerald-800',
   }[rol] || 'bg-gray-100 text-gray-600'
   return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{rol}</span>
+}
+
+
+// ── Modal cambiar contraseña (disponible para todos los roles) ───────────────
+function ModalCambiarPassword({ onClose }) {
+  const [form, setForm]     = useState({ nueva: '', confirmar: '' })
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg]       = useState('')
+  const [error, setError]   = useState('')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setMsg('')
+    if (form.nueva.length < 6)            { setError('La contraseña debe tener al menos 6 caracteres'); return }
+    if (form.nueva !== form.confirmar)    { setError('Las contraseñas no coinciden'); return }
+    setLoading(true)
+    const supabase = createClient()
+    // updateUser actúa sobre el usuario actualmente autenticado, no requiere service role
+    const { error: err } = await supabase.auth.updateUser({ password: form.nueva })
+    setLoading(false)
+    if (err) { setError(err.message); return }
+    setMsg('✅ Contraseña actualizada correctamente')
+    setTimeout(onClose, 1500)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="font-bold text-gray-900">Cambiar contraseña</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Mínimo 6 caracteres</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="label">Nueva contraseña</label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              className="input font-mono"
+              placeholder="••••••••"
+              value={form.nueva}
+              onChange={e => setForm(f => ({ ...f, nueva: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="label">Confirmar contraseña</label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              className="input font-mono"
+              placeholder="••••••••"
+              value={form.confirmar}
+              onChange={e => setForm(f => ({ ...f, confirmar: e.target.value }))}
+            />
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>
+          )}
+          {msg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm">{msg}</div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
+            <button type="submit" disabled={loading} className="btn-primary flex-1">
+              {loading ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 // ── Buscador global ──────────────────────────────────────────────────────────
@@ -138,7 +219,8 @@ function BuscadorGlobal({ onClose }) {
 export default function DashboardLayout({ children }) {
   const [perfil, setPerfil]         = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [buscadorOpen, setBuscadorOpen] = useState(false)
+  const [buscadorOpen, setBuscadorOpen]         = useState(false)
+  const [cambiarPasswordOpen, setCambiarPasswordOpen] = useState(false)
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -215,10 +297,16 @@ export default function DashboardLayout({ children }) {
             <div className="mt-1"><RolBadge rol={perfil.rol} /></div>
           </div>
         )}
-        <button onClick={handleLogout}
-          className="flex items-center gap-2 text-brand-300 hover:text-white text-xs transition-colors">
-          <span>🚪</span> Cerrar sesión
-        </button>
+        <div className="flex flex-col gap-1.5">
+          <button onClick={() => { setCambiarPasswordOpen(true); setSidebarOpen(false) }}
+            className="flex items-center gap-2 text-brand-300 hover:text-white text-xs transition-colors">
+            <span>🔑</span> Cambiar contraseña
+          </button>
+          <button onClick={handleLogout}
+            className="flex items-center gap-2 text-brand-300 hover:text-white text-xs transition-colors">
+            <span>🚪</span> Cerrar sesión
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -226,6 +314,7 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {buscadorOpen && <BuscadorGlobal onClose={() => setBuscadorOpen(false)} />}
+      {cambiarPasswordOpen && <ModalCambiarPassword onClose={() => setCambiarPasswordOpen(false)} />}
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-60 bg-brand-900 fixed inset-y-0 left-0 z-30 shadow-xl">
