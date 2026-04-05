@@ -7,7 +7,7 @@ const MESES_STR   = ['3','4','5','6','7','8','9','10','11','12']
 const MESES_LABEL = { '3':'Marzo','4':'Abril','5':'Mayo','6':'Junio','7':'Julio','8':'Agosto','9':'Septiembre','10':'Octubre','11':'Noviembre','12':'Diciembre' }
 const ANIO_ACTUAL = new Date().getFullYear()
 
-const FORM_VACIO = { nombres: '', apellidos: '', rut: '', fecha_nacimiento: '', seguro_medico: '', info_contacto: '', id_apoderado: '' }
+const FORM_VACIO = { nombres: '', apellidos: '', rut: '', fecha_nacimiento: '', seguro_medico: '', info_contacto: '', id_apoderado: '', genero: '' }
 
 // ─── Modal: Crear / Editar niño ─────────────────────────────────────────────
 function ModalNino({ nino, apoderados, onClose, onGuardado }) {
@@ -20,6 +20,7 @@ function ModalNino({ nino, apoderados, onClose, onGuardado }) {
     seguro_medico:    nino.seguro_medico    || '',
     info_contacto:    nino.info_contacto    || '',
     id_apoderado:     nino.id_apoderado     || '',
+    genero:            nino.genero            || '',
   } : FORM_VACIO)
   const [guardando, setGuardando] = useState(false)
   const [error, setError]         = useState('')
@@ -40,6 +41,7 @@ function ModalNino({ nino, apoderados, onClose, onGuardado }) {
       seguro_medico:    form.seguro_medico.trim()    || null,
       info_contacto:    form.info_contacto.trim()    || null,
       id_apoderado:     form.id_apoderado            || null,
+      genero:            form.genero            || null,
       activo:           true,
     }
     const { error: err } = esEdicion
@@ -97,6 +99,15 @@ function ModalNino({ nino, apoderados, onClose, onGuardado }) {
             <label className="label">Contacto de emergencia</label>
             <input className="input" placeholder="Mamá: +56 9 1234 5678"
               value={form.info_contacto} onChange={set('info_contacto')} />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Género</label>
+            <select value={form.genero || ''} onChange={set('genero')} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+              <option value="">Seleccionar</option>
+              <option value="Niña">Niña 👧</option>
+              <option value="Niño">Niño 👦</option>
+            </select>
           </div>
 
           <div>
@@ -301,6 +312,7 @@ export default function NinosPage() {
   const [perfil, setPerfil]       = useState(null)
   const [modalNino, setModalNino] = useState(null)   // null | 'nuevo' | objeto niño para editar
   const [modalImportar, setModalImportar] = useState(false)
+  const [voucherView, setVoucherView] = useState(null); // { nino: {...}, pago: {...} }
   const supabase = createClient()
 
   useEffect(() => { fetchAll() }, [])
@@ -331,24 +343,30 @@ export default function NinosPage() {
     setLoading(false)
   }
 
-  async function togglePago(idNino, mesNum) {
-    const nombreMes = MESES_LABEL[mesNum] // Convertimos el '3' en 'Marzo'
-    const actual = pagos[idNino]?.[nombreMes] || false
+  async function togglePago(ninoId, mesNum) {
+    const mesNombre = MESES_LABEL[mesNum];
+    const estadoActual = pagos[ninoId]?.[mesNombre] || false;
+    const nuevoEstado = !estadoActual;
 
-    // Actualizamos la vista local primero
-    setPagos(prev => ({ ...prev, [idNino]: { ...prev[idNino], [nombreMes]: !actual } }))
+    // Obtener quién está logueado para el voucher
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: perfil } = await supabase.from('perfiles').select('nombre_completo').eq('id', user.id).single();
 
-    // Enviamos el nombre del mes y usamos la regla 'unique_pago_mes_anio'
-    const { error } = await supabase.from('pagos_cuotas')
-      .upsert(
-        { id_nino: idNino, mes: nombreMes, anio: ANIO_ACTUAL, pagado: !actual }, 
-        { onConflict: 'id_nino,mes,anio' }
-      )
+    const { error } = await supabase
+      .from('pagos_cuotas')
+      .upsert({
+        id_nino: ninoId,
+        mes: mesNombre,
+        anio: ANIO_ACTUAL,
+        pagado: nuevoEstado,
+        // Si marca como pagado, guardamos la info. Si desmarca, lo borramos.
+        fecha_pago: nuevoEstado ? new Date().toISOString() : null,
+        recibido_por: nuevoEstado ? perfil.nombre_completo : null
+      }, { onConflict: 'id_nino,mes,anio' });
 
-    if (error) {
-      // Si falla, revertimos el cambio en la vista
-      setPagos(prev => ({ ...prev, [idNino]: { ...prev[idNino], [nombreMes]: actual } }))
-      alert('Error: ' + error.message)
+    if (!error) {
+      // Refrescar los datos para que el voucher tenga la info nueva
+      fetchAll(); 
     }
   }
 
@@ -464,13 +482,21 @@ Se eliminarán también sus registros de cuotas.`)) return
                     return (
                       <div key={mesNum} className="flex flex-col items-center">
                         <button
-                          disabled={!puedeMarcarPagos}
-                          onClick={() => puedeMarcarPagos && togglePago(nino.id, mesNum)}
+                          onClick={() => {
+                            if (pagado) {
+                              // Si ya está pagado, abrimos el voucher pasándole la info del niño y del pago
+                              const infoPago = cuotasRaw.find(c => c.id_nino === nino.id && c.mes === MESES_LABEL[mesNum]);
+                              setVoucherView({ nino: nino, pago: infoPago });
+                            } else if (puedeMarcarPagos) {
+                              // Si no está pagado y tengo permiso, marco el pago
+                              togglePago(nino.id, mesNum);
+                            }
+                          }}
                           className={`w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold border transition-all ${
                             pagado ? 'bg-brand-100 text-brand-700' : 'bg-luna-50 text-luna-300 border-luna-100'
-                          }`}
+                          } ${!puedeMarcarPagos ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}
                         >
-                          {pagado ? '✓' : MESES_LABEL[mesNum].substring(0, 1)}
+                          {pagado ? '✓' : '·'}
                         </button>
                         <span className="text-[8px] mt-1 text-gray-400 uppercase font-bold">{MESES_LABEL[mesNum].substring(0, 3)}</span>
                       </div>
@@ -521,7 +547,16 @@ Se eliminarán también sus registros de cuotas.`)) return
                     return (
                       <td key={mesNum} className="px-1 py-3 text-center">
                         <button
-                          onClick={() => puedeMarcarPagos && togglePago(nino.id, mesNum)}
+                          onClick={() => {
+                            if (pagado) {
+                              // Si ya está pagado, abrimos el voucher pasándole la info del niño y del pago
+                              const infoPago = cuotasRaw.find(c => c.id_nino === nino.id && c.mes === MESES_LABEL[mesNum]);
+                              setVoucherView({ nino: nino, pago: infoPago });
+                            } else if (puedeMarcarPagos) {
+                              // Si no está pagado y tengo permiso, marco el pago
+                              togglePago(nino.id, mesNum);
+                            }
+                          }}
                           disabled={!puedeMarcarPagos}
                           className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
                             pagado ? 'bg-brand-100 text-brand-700' : 'bg-luna-50 text-luna-300 border-luna-100'
@@ -554,4 +589,80 @@ Se eliminarán también sus registros de cuotas.`)) return
       </div>
     </div>
   )
+}
+
+function VoucherModal({ pago, nino, onClose }) {
+  if (!pago || !nino) return null;
+
+  return (
+    <div className="fixed inset-0 bg-brand-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div className="bg-brand-500 p-6 text-center text-white relative">
+          <div className="bg-white w-20 h-20 rounded-2xl mx-auto mb-3 flex items-center justify-center shadow-lg">
+            <img src="/logo_regacitos.png" alt="Logo" className="w-16 h-16 object-contain" />
+          </div>
+          <h2 className="text-xl font-black tracking-tight">COMPROBANTE DE PAGO</h2>
+          <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Jardín Infantil Regacitos</p>
+          <div className="absolute -bottom-3 left-0 right-0 flex justify-around px-2">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="w-3 h-3 bg-white rounded-full" />
+            ))}
+          </div>
+        </div>
+
+        <div className="p-8 pt-10 space-y-6">
+          <div className="text-center">
+            <p className="text-[10px] text-gray-400 font-bold uppercase">Monto Recibido</p>
+            <p className="text-4xl font-black text-brand-900">$4.000</p>
+            <span className="inline-block mt-2 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-full uppercase">
+              Cuota de {pago.mes} • {pago.anio || 2026}
+            </span>
+          </div>
+
+          <div className="space-y-3 border-t border-dashed border-gray-200 pt-6">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400 font-bold uppercase tracking-tighter">Alumno:</span>
+              <span className="text-gray-800 font-bold">{nino.nombres} {nino.apellidos}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400 font-bold uppercase tracking-tighter">RUT:</span>
+              <span className="text-gray-800 font-mono">{nino.rut || '—'}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400 font-bold uppercase tracking-tighter">Fecha de Pago:</span>
+              <span className="text-gray-800 font-bold">
+                {pago.fecha_pago ? new Date(pago.fecha_pago).toLocaleDateString('es-CL') : '03/04/2026'}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400 font-bold uppercase tracking-tighter">Recibido por:</span>
+              <span className="text-gray-800 font-bold">
+                {pago.recibido_por || 'Katherine Beatriz Sanchez'}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-luna-50 p-4 rounded-2xl border border-luna-100">
+            <p className="text-[9px] text-luna-600 font-medium text-center leading-tight">
+              Este documento es un comprobante digital generado automáticamente por el Sistema de Gestión Regacitos.
+            </p>
+          </div>
+
+          <button 
+            onClick={onClose}
+            className="w-full py-4 bg-accent-500 hover:bg-accent-600 text-white font-black rounded-2xl transition-all shadow-lg shadow-accent-500/30"
+          >
+            CERRAR VOUCHER
+          </button>
+          
+          <button 
+            onClick={() => window.print()}
+            className="w-full text-gray-400 text-[10px] font-bold uppercase hover:text-gray-600 transition-colors"
+          >
+            🖨️ Imprimir o guardar PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

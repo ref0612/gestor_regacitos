@@ -10,6 +10,7 @@ const NAV = [
   { href: '/dashboard/gastos',  label: 'Finanzas',     icon: '🧾', roles: ['Admin','Tesorero'] },
   { href: '/dashboard/admin',   label: 'Usuarios',     icon: '👥', roles: ['Admin'] },
   { href: '/dashboard/admin/configuracion', label: 'Configuración', icon: '⚙️', roles: ['Admin'] },
+  { href: '/dashboard/comunidad', label: 'Comunidad', icon: '📢', roles: ['Admin','Tesorero','Apoderado'] },
 ]
 
 function RolBadge({ rol }) {
