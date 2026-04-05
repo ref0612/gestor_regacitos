@@ -22,6 +22,7 @@ export default function NinoDetailPage() {
 
   const supabase = createClient()
   const MESES_DB = ['Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+  const MES_ACTUAL = new Date().getMonth() + 1   // 1-12
 
   useEffect(() => {
     fetchDatos()
@@ -49,15 +50,22 @@ export default function NinoDetailPage() {
     setLoading(false)
   }
 
-  async function togglePago(mesNombre) {
+  async function togglePago(mesNombre, mesIdx) {
     if (!puedeEditar) return;
+    const mesNum = mesIdx + 3   // Marzo=3, Abril=4, ...
     const pagoExistente = pagos.find(p => p.mes === mesNombre);
     if (pagoExistente) {
       await supabase.from('pagos_cuotas').delete().match({ id_nino: nino.id, mes: mesNombre, anio: new Date().getFullYear() });
     } else {
+      // Detectar si es cuota atrasada, al día o adelantada
+      let nota_pago = null
+      if (mesNum < MES_ACTUAL)      nota_pago = 'Cuota atrasada'
+      else if (mesNum > MES_ACTUAL) nota_pago = 'Cuota adelantada'
       await supabase.from('pagos_cuotas').insert({
         id_nino: nino.id, mes: mesNombre, anio: new Date().getFullYear(), pagado: true,
-        fecha_pago: new Date().toISOString(), recibido_por: perfil?.nombre_completo || 'Administración'
+        fecha_pago: new Date().toISOString(),
+        recibido_por: perfil?.nombre_completo || 'Administración',
+        nota_pago,
       });
     }
     fetchDatos();
@@ -196,7 +204,7 @@ export default function NinoDetailPage() {
             </div>
 
             <div className="divide-y divide-gray-50">
-              {MESES_DB.map((mes, idx) => {
+              {MESES_DB.map((mes, idx) => {  // idx 0=Marzo, 1=Abril...
                 const pagoRealizado = pagos.find(p => p.mes === mes);
                 const estaPagado = !!pagoRealizado;
 
@@ -230,7 +238,7 @@ export default function NinoDetailPage() {
 
                       {puedeEditar && (
                         <button 
-                          onClick={() => togglePago(mes)}
+                          onClick={() => togglePago(mes, idx)}
                           className={`flex-1 sm:flex-none text-[10px] font-black px-6 py-2 rounded-xl uppercase transition-all shadow-sm border ${
                             estaPagado 
                               ? 'bg-white text-red-500 border-red-100 hover:bg-red-50' 
