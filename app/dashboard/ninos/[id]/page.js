@@ -19,7 +19,7 @@ export default function NinoDetailPage({ params }) {
   const [guardando, setGuardando] = useState(false)
 
   const supabase = createClient()
-  const MESES_DB = ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+  const MESES_DB = ['Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
   useEffect(() => {
     fetchDatos()
@@ -51,10 +51,10 @@ export default function NinoDetailPage({ params }) {
     if (!puedeEditar) return;
     const pagoExistente = pagos.find(p => p.mes === mesNombre);
     if (pagoExistente) {
-      await supabase.from('pagos_cuotas').delete().match({ id_nino: nino.id, mes: mesNombre, anio: 2026 });
+      await supabase.from('pagos_cuotas').delete().match({ id_nino: nino.id, mes: mesNombre, anio: new Date().getFullYear() });
     } else {
       await supabase.from('pagos_cuotas').insert({
-        id_nino: nino.id, mes: mesNombre, anio: 2026, pagado: true,
+        id_nino: nino.id, mes: mesNombre, anio: new Date().getFullYear(), pagado: true,
         fecha_pago: new Date().toISOString(), recibido_por: perfil?.nombre_completo || 'Administración'
       });
     }
@@ -186,7 +186,7 @@ export default function NinoDetailPage({ params }) {
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-black text-gray-800 flex items-center gap-2 text-sm uppercase tracking-wide">
                 <span className="w-2 h-2 bg-accent-500 rounded-full animate-pulse" /> 
-                Control de Mensualidades 2026
+                Control de Mensualidades ${new Date().getFullYear()}
               </h3>
               <span className="px-3 py-1 bg-brand-50 text-brand-700 text-[10px] font-black rounded-full uppercase">
                 {pagos.length === 10 ? 'AL DÍA 🏆' : 'PENDIENTE'}
@@ -362,7 +362,7 @@ function VoucherModal({ pago, nino, onClose }) {
     setCanShare(!!navigator.share);
   }, []);
 
-  const folioID = `RG-${pago.anio || 2026}-${pago.mes.substring(0, 3).toUpperCase()}-${nino.id.substring(0, 4).toUpperCase()}`;
+  const folioID = `RG-${pago.anio || new Date().getFullYear()}-${pago.mes.substring(0, 3).toUpperCase()}-${nino.id.substring(0, 4).toUpperCase()}`;
 
   const generatePDF = async () => {
     if (!voucherRef.current) return;
@@ -432,7 +432,7 @@ function VoucherModal({ pago, nino, onClose }) {
                   <span className="text-lg mr-2 leading-none">🎒</span>
                   <div className="flex-1">
                     <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Concepto</p>
-                    <p className="font-bold text-gray-800 text-xs leading-tight">Cuota de {pago.mes} {pago.anio || 2026}</p>
+                    <p className="font-bold text-gray-800 text-xs leading-tight">Cuota de {pago.mes} {pago.anio || new Date().getFullYear()}</p>
                   </div>
                 </div>
                 <div className="flex bg-[#fafafa] rounded-lg p-2 items-center border border-gray-100">
@@ -453,7 +453,7 @@ function VoucherModal({ pago, nino, onClose }) {
 
               <div className="mt-4 pt-3 border-t border-gray-100 text-center">
                 <p className="text-[9px] text-gray-500 font-medium leading-snug">
-                  Este comprobante digital confirma el abono de la cuota del mes de <span className="font-bold text-gray-700">{pago.mes} {pago.anio || 2026}</span> en el descrito.
+                  Este comprobante digital confirma el abono de la cuota del mes de <span className="font-bold text-gray-700">{pago.mes} {pago.anio || new Date().getFullYear()}</span> en el descrito.
                 </p>
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1.5">Folio: {folioID}</p>
               </div>

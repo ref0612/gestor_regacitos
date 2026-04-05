@@ -2,6 +2,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const MESES_STR   = ['3','4','5','6','7','8','9','10','11','12']
 const MESES_LABEL = { '3':'Marzo','4':'Abril','5':'Mayo','6':'Junio','7':'Julio','8':'Agosto','9':'Septiembre','10':'Octubre','11':'Noviembre','12':'Diciembre' }
@@ -306,13 +308,14 @@ function ModalImportar({ onClose, onImportado }) {
 export default function NinosPage() {
   const [ninos, setNinos]         = useState([])
   const [pagos, setPagos]         = useState({})
+  const [cuotasRaw, setCuotasRaw] = useState([]) // NUEVO: Para guardar la info completa del pago
   const [apoderados, setApoderados] = useState([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [perfil, setPerfil]       = useState(null)
-  const [modalNino, setModalNino] = useState(null)   // null | 'nuevo' | objeto niño para editar
+  const [modalNino, setModalNino] = useState(null)   
   const [modalImportar, setModalImportar] = useState(false)
-  const [voucherView, setVoucherView] = useState(null); // { nino: {...}, pago: {...} }
+  const [voucherView, setVoucherView] = useState(null); 
   const supabase = createClient()
 
   useEffect(() => { fetchAll() }, [])
@@ -321,52 +324,95 @@ export default function NinosPage() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: p } = await supabase.from('perfiles').select('rol').eq('id', user.id).single()
+      const { data: p } = await supabase.from('perfiles').select('rol, nombre_completo').eq('id', user.id).single()
       setPerfil(p)
     }
     const { data: n } = await supabase
       .from('ninos')
       .select('*')
       .eq('activo', true)
-      .order('nombres', { ascending: true })   // Ahora el nombre es la prioridad 1
-      .order('apellidos', { ascending: true }); // El apellido es la prioridad 2
-    const { data: c } = await supabase.from('pagos_cuotas').select('id_nino, mes, pagado').eq('anio', ANIO_ACTUAL)
+      .order('nombres', { ascending: true })   
+      .order('apellidos', { ascending: true }); 
+      
+    // CORRECCIÓN: Pedimos TODOS los datos (*) para que el voucher tenga la info completa
+    const { data: c } = await supabase.from('pagos_cuotas').select('*').eq('anio', ANIO_ACTUAL)
     const { data: a } = await supabase.from('perfiles').select('id, nombre_completo, email').eq('rol', 'Apoderado').order('nombre_completo')
+    
     const mapa = {}
     c?.forEach(({ id_nino, mes, pagado }) => {
       if (!mapa[id_nino]) mapa[id_nino] = {}
       mapa[id_nino][String(mes)] = pagado
     })
+    
     setNinos(n || [])
     setPagos(mapa)
+    setCuotasRaw(c || []) // Guardamos la info completa para el Voucher
     setApoderados(a || [])
     setLoading(false)
   }
 
-  async function togglePago(ninoId, mesNum) {
-    const mesNombre = MESES_LABEL[mesNum];
-    const estadoActual = pagos[ninoId]?.[mesNombre] || false;
-    const nuevoEstado = !estadoActual;
+  // --- FUNCIÓN A PRUEBA DE BALAS PARA REGISTRAR/REVERTIR ---
+  async function togglePago(ninoData, mesData) {
+    const ninoId = typeof ninoData === 'object' ? ninoData.id : ninoData;
+    const ninoObjeto = typeof ninoData === 'object' ? ninoData : ninos.find(n => n.id === ninoId);
 
-    // Obtener quién está logueado para el voucher
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: perfil } = await supabase.from('perfiles').select('nombre_completo').eq('id', user.id).single();
+    let mesNombre = mesData;
+    if (typeof mesData === 'object' && mesData !== null) {
+      mesNombre = mesData.label || mesData.mes; 
+    }
+    
+    // Si mandan un número, se convierte al mes correcto
+    if (!isNaN(mesNombre) && mesNombre !== null && mesNombre !== '') {
+      const mesesArr = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      mesNombre = mesesArr[parseInt(mesNombre) - 1];
+    }
 
-    const { error } = await supabase
+    // Capitalizamos para pasar el check constraint de Supabase
+    if (typeof mesNombre === 'string') {
+      mesNombre = mesNombre.charAt(0).toUpperCase() + mesNombre.slice(1).toLowerCase();
+    }
+
+    if (!ninoId || !mesNombre) {
+      console.error("Faltan datos:", { ninoId, mesNombre });
+      return;
+    }
+
+    // maybeSingle() evita el error 406 Not Acceptable
+    const { data: pagoExistente } = await supabase
       .from('pagos_cuotas')
-      .upsert({
+      .select('*')
+      .eq('id_nino', ninoId)
+      .eq('mes', mesNombre)
+      .eq('anio', ANIO_ACTUAL)
+      .maybeSingle(); 
+
+    if (pagoExistente) {
+      if(!confirm(`¿Desmarcar el pago de ${mesNombre} de ${ninoObjeto?.nombres || 'este alumno'}?`)) return;
+      await supabase.from('pagos_cuotas').delete().match({ id: pagoExistente.id });
+      fetchAll(); // Actualiza la vista
+    } else {
+      const nuevoPago = {
         id_nino: ninoId,
         mes: mesNombre,
         anio: ANIO_ACTUAL,
-        pagado: nuevoEstado,
-        // Si marca como pagado, guardamos la info. Si desmarca, lo borramos.
-        fecha_pago: nuevoEstado ? new Date().toISOString() : null,
-        recibido_por: nuevoEstado ? perfil.nombre_completo : null
-      }, { onConflict: 'id_nino,mes,anio' });
+        pagado: true,
+        fecha_pago: new Date().toISOString(),
+        recibido_por: perfil?.nombre_completo || 'Administración'
+      };
 
-    if (!error) {
-      // Refrescar los datos para que el voucher tenga la info nueva
-      fetchAll(); 
+      const { data: pagoGuardado, error } = await supabase
+        .from('pagos_cuotas')
+        .insert(nuevoPago)
+        .select()
+        .single();
+
+      if (!error && pagoGuardado) {
+        setVoucherView({ nino: ninoObjeto, pago: pagoGuardado });
+        fetchAll(); // Actualiza la vista de fondo
+      } else {
+        console.error("Error al registrar el pago:", error);
+        alert("No se pudo registrar el pago. Revisa la consola.");
+      }
     }
   }
 
@@ -378,23 +424,20 @@ Se eliminarán también sus registros de cuotas.`)) return
     fetchAll()
   }
 
-  // Filtrar por búsqueda y luego ordenar alfabéticamente por apellidos
   const filtered = ninos
     .filter(n => 
       `${n.nombres} ${n.apellidos} ${n.rut || ''}`.toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => {
-      // 1. Comparamos por Nombres primero
       const compareNombres = a.nombres.localeCompare(b.nombres);
       if (compareNombres !== 0) return compareNombres;
-      
-      // 2. Si los nombres son iguales (ej: dos "María"), comparamos apellidos
       return a.apellidos.localeCompare(b.apellidos);
     });
+
   const cuotasAlDia = (id) => MESES_STR.filter(m => pagos[id]?.[MESES_LABEL[m]]).length
   const puedeMarcarPagos = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero';
-  const puedeGestionarNinos = perfil?.rol === 'Admin'; // Solo el Admin agrega/edita/borra
-  const puedeEditar = puedeGestionarNinos; // Referencia que falta
+  const puedeGestionarNinos = perfil?.rol === 'Admin'; 
+  const puedeEditar = puedeGestionarNinos; 
   const esAdmin = perfil?.rol === 'Admin'
 
   if (loading) return (
@@ -463,8 +506,6 @@ Se eliminarán también sus registros de cuotas.`)) return
                     <p className="font-bold text-gray-900 truncate text-sm">{nino.nombres} {nino.apellidos}</p>
                     <p className="text-[10px] text-gray-400 font-mono uppercase">{nino.rut || 'Sin RUT'}</p>
                   </div>
-                  
-                  {/* El Tesorero YA NO ve este botón, solo el Admin */}
                   {puedeGestionarNinos && (
                     <button 
                       onClick={() => setModalNino(nino)}
@@ -475,7 +516,7 @@ Se eliminarán también sus registros de cuotas.`)) return
                   )}
                 </div>
 
-                {/* Grilla de 5 columnas para meses (2 filas de 5 = 10 meses) */}
+                {/* Grilla de 5 columnas para meses */}
                 <div className="grid grid-cols-5 gap-1.5 mb-4">
                   {MESES_STR.map(mesNum => {
                     const pagado = pagos[nino.id]?.[MESES_LABEL[mesNum]] || false;
@@ -484,11 +525,10 @@ Se eliminarán también sus registros de cuotas.`)) return
                         <button
                           onClick={() => {
                             if (pagado) {
-                              // Si ya está pagado, abrimos el voucher pasándole la info del niño y del pago
+                              // Ahora sí encontrará la info gracias a que guardamos cuotasRaw
                               const infoPago = cuotasRaw.find(c => c.id_nino === nino.id && c.mes === MESES_LABEL[mesNum]);
                               setVoucherView({ nino: nino, pago: infoPago });
                             } else if (puedeMarcarPagos) {
-                              // Si no está pagado y tengo permiso, marco el pago
                               togglePago(nino.id, mesNum);
                             }
                           }}
@@ -549,11 +589,9 @@ Se eliminarán también sus registros de cuotas.`)) return
                         <button
                           onClick={() => {
                             if (pagado) {
-                              // Si ya está pagado, abrimos el voucher pasándole la info del niño y del pago
                               const infoPago = cuotasRaw.find(c => c.id_nino === nino.id && c.mes === MESES_LABEL[mesNum]);
                               setVoucherView({ nino: nino, pago: infoPago });
                             } else if (puedeMarcarPagos) {
-                              // Si no está pagado y tengo permiso, marco el pago
                               togglePago(nino.id, mesNum);
                             }
                           }}
@@ -587,80 +625,140 @@ Se eliminarán también sus registros de cuotas.`)) return
           </table>
         </div>
       </div>
+
+      {/* =========================================
+          MODAL DEL VOUCHER
+      ========================================== */}
+      {voucherView && (
+        <VoucherModal 
+          nino={voucherView.nino} 
+          pago={voucherView.pago} 
+          onClose={() => setVoucherView(null)} 
+        />
+      )}
     </div>
   )
 }
 
 function VoucherModal({ pago, nino, onClose }) {
-  if (!pago || !nino) return null;
+  const voucherRef = useRef(null);
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    setCanShare(!!navigator.share);
+  }, []);
+
+  const folioID = `RG-${pago.anio || new Date().getFullYear()}-${pago.mes.substring(0, 3).toUpperCase()}-${nino.id.substring(0, 4).toUpperCase()}`;
+
+  const generatePDF = async () => {
+    if (!voucherRef.current) return;
+    try {
+      const element = voucherRef.current;
+      const canvas = await html2canvas(element, { scale: 3, useCORS: true, scrollY: -window.scrollY });
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdfWidth = element.offsetWidth;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [pdfWidth, pdfHeight] });
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Comprobante_${nino.nombres}_${pago.mes}.pdf`);
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+    }
+  };
+
+  const shareVoucher = async () => {
+    if (!navigator.share || !voucherRef.current) return;
+    try {
+      const canvas = await html2canvas(voucherRef.current, { scale: 2, useCORS: true });
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], `Comprobante_${pago.mes}.png`, { type: blob.type });
+
+      await navigator.share({
+        files: [file],
+        title: 'Comprobante Jardín Regacitos',
+        text: `Hola! Aquí está el comprobante de ${pago.mes} de ${nino.nombres}. 🌱`,
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error al compartir:', error);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-brand-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-        <div className="bg-brand-500 p-6 text-center text-white relative">
-          <div className="bg-white w-20 h-20 rounded-2xl mx-auto mb-3 flex items-center justify-center shadow-lg">
-            <img src="/logo_regacitos.png" alt="Logo" className="w-16 h-16 object-contain" />
-          </div>
-          <h2 className="text-xl font-black tracking-tight">COMPROBANTE DE PAGO</h2>
-          <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Jardín Infantil Regacitos</p>
-          <div className="absolute -bottom-3 left-0 right-0 flex justify-around px-2">
-            {[...Array(12)].map((_, i) => (
-              <div key={i} className="w-3 h-3 bg-white rounded-full" />
-            ))}
-          </div>
-        </div>
+    <div className="fixed inset-0 bg-brand-900/60 backdrop-blur-sm z-[100] overflow-y-auto">
+      <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-sm relative animate-in fade-in zoom-in duration-200">
+          <div ref={voucherRef} className="bg-[#f0f9f6] p-4 rounded-[2rem] relative">
+            <div className="bg-white rounded-[1.5rem] border-2 border-dashed border-brand-200 p-4 pb-5 shadow-sm">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-50">
+                <div className="bg-brand-50 p-1.5 rounded-full shadow-sm border border-brand-100 flex-shrink-0">
+                  <img src="/logo_regacitos.png" alt="Logo" className="w-9 h-9 object-contain" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-[17px] font-black text-brand-700 uppercase tracking-wide leading-none">Jardín Regacitos</h2>
+                  <p className="text-[8px] font-bold text-accent-500 uppercase tracking-widest bg-accent-50 inline-block px-2 py-0.5 rounded-md mt-1">Comprobante Digital</p>
+                </div>
+              </div>
 
-        <div className="p-8 pt-10 space-y-6">
-          <div className="text-center">
-            <p className="text-[10px] text-gray-400 font-bold uppercase">Monto Recibido</p>
-            <p className="text-4xl font-black text-brand-900">$4.000</p>
-            <span className="inline-block mt-2 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-full uppercase">
-              Cuota de {pago.mes} • {pago.anio || 2026}
-            </span>
+              <div className="bg-brand-50 rounded-xl p-3 text-center border border-brand-100 mb-4">
+                <p className="text-3xl font-black text-brand-700 leading-none">$4.000</p>
+                <p className="text-[9px] font-bold text-brand-400 uppercase tracking-widest mt-1">Monto Recibido</p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex bg-[#fafafa] rounded-lg p-2 items-center border border-gray-100">
+                  <span className="text-lg mr-2 leading-none">🧒</span>
+                  <div className="flex-1">
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Alumno</p>
+                    <p className="font-bold text-gray-800 text-xs leading-tight">{nino.nombres} {nino.apellidos}</p>
+                  </div>
+                </div>
+                <div className="flex bg-[#fafafa] rounded-lg p-2 items-center border border-gray-100">
+                  <span className="text-lg mr-2 leading-none">🎒</span>
+                  <div className="flex-1">
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Concepto</p>
+                    <p className="font-bold text-gray-800 text-xs leading-tight">Cuota de {pago.mes} {pago.anio || new Date().getFullYear()}</p>
+                  </div>
+                </div>
+                <div className="flex bg-[#fafafa] rounded-lg p-2 items-center border border-gray-100">
+                  <span className="text-lg mr-2 leading-none">📅</span>
+                  <div className="flex-1">
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Fecha de Pago</p>
+                    <p className="font-bold text-gray-800 text-xs leading-tight">{new Date(pago.fecha_pago).toLocaleDateString('es-CL')}</p>
+                  </div>
+                </div>
+                <div className="flex bg-[#fafafa] rounded-lg p-2 items-center border border-gray-100">
+                  <span className="text-lg mr-2 leading-none">✍️</span>
+                  <div className="flex-1">
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Recibido por</p>
+                    <p className="font-bold text-gray-800 text-xs leading-tight">{pago.recibido_por || 'Administración'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+                <p className="text-[9px] text-gray-500 font-medium leading-snug">
+                  Este comprobante digital confirma el abono de la cuota del mes de <span className="font-bold text-gray-700">{pago.mes} {pago.anio || new Date().getFullYear()}</span> en el descrito.
+                </p>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1.5">Folio: {folioID}</p>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-3 border-t border-dashed border-gray-200 pt-6">
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-400 font-bold uppercase tracking-tighter">Alumno:</span>
-              <span className="text-gray-800 font-bold">{nino.nombres} {nino.apellidos}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-400 font-bold uppercase tracking-tighter">RUT:</span>
-              <span className="text-gray-800 font-mono">{nino.rut || '—'}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-400 font-bold uppercase tracking-tighter">Fecha de Pago:</span>
-              <span className="text-gray-800 font-bold">
-                {pago.fecha_pago ? new Date(pago.fecha_pago).toLocaleDateString('es-CL') : '03/04/2026'}
-              </span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-400 font-bold uppercase tracking-tighter">Recibido por:</span>
-              <span className="text-gray-800 font-bold">
-                {pago.recibido_por || 'Katherine Beatriz Sanchez'}
-              </span>
-            </div>
+          <div className="mt-3 space-y-2 px-1">
+            {canShare && (
+              <button onClick={shareVoucher} className="w-full py-3 bg-accent-500 hover:bg-accent-600 text-white font-black text-sm rounded-xl shadow-md shadow-accent-500/20 flex items-center justify-center gap-2">
+                <span>Compartir Imagen</span> 📲
+              </button>
+            )}
+            <button onClick={generatePDF} className="w-full py-2.5 bg-white text-brand-600 font-bold text-sm rounded-xl border border-gray-100 shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50">
+              📥 Descargar PDF
+            </button>
+            <button onClick={onClose} className="w-full py-2 text-white/80 font-bold uppercase tracking-widest text-[10px] hover:text-white">
+              Cerrar
+            </button>
           </div>
 
-          <div className="bg-luna-50 p-4 rounded-2xl border border-luna-100">
-            <p className="text-[9px] text-luna-600 font-medium text-center leading-tight">
-              Este documento es un comprobante digital generado automáticamente por el Sistema de Gestión Regacitos.
-            </p>
-          </div>
-
-          <button 
-            onClick={onClose}
-            className="w-full py-4 bg-accent-500 hover:bg-accent-600 text-white font-black rounded-2xl transition-all shadow-lg shadow-accent-500/30"
-          >
-            CERRAR VOUCHER
-          </button>
-          
-          <button 
-            onClick={() => window.print()}
-            className="w-full text-gray-400 text-[10px] font-bold uppercase hover:text-gray-600 transition-colors"
-          >
-            🖨️ Imprimir o guardar PDF
-          </button>
         </div>
       </div>
     </div>
