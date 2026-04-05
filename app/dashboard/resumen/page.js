@@ -74,6 +74,41 @@ export default function ResumenMensualPage() {
       .select('*').eq('tipo', 'Ingreso')
       .gte('fecha', fechaInicio).lt('fecha', fechaFin)
 
+    // ── SALDOS ACUMULADOS: lógica idéntica al Dashboard ────────────────────
+    // Usa fallback cuando monto_general/monto_huellas son NULL
+    // (pagos anteriores al trigger o marcados sin el splitter)
+    const VALOR_CUOTA   = config?.valor_cuota_total      || 4000
+    const VALOR_HUELLAS_CFG = config?.monto_dejando_huellas || 1000
+    const VALOR_GENERAL_CFG = VALOR_CUOTA - VALOR_HUELLAS_CFG
+
+    const { data: todosPagesCuotas } = await supabase
+      .from('pagos_cuotas').select('monto_general, monto_huellas').eq('pagado', true)
+
+    const { data: todosMovs } = await supabase
+      .from('movimientos').select('monto, tipo, destino')
+
+    let _sumGeneral = 0, _sumHuellas = 0
+    ;(todosPagesCuotas || []).forEach(p => {
+      _sumGeneral += p.monto_general !== null ? Number(p.monto_general) : VALOR_GENERAL_CFG
+      _sumHuellas += p.monto_huellas !== null ? Number(p.monto_huellas) : VALOR_HUELLAS_CFG
+    })
+
+    let _gastoGeneral = 0, _gastoHuellas = 0
+    let _ingresosGral = 0, _ingresosHuellas = 0
+    ;(todosMovs || []).forEach(m => {
+      const monto = Number(m.monto || 0)
+      if (m.tipo === 'Egreso') {
+        if (m.destino === 'General') _gastoGeneral += monto
+        else _gastoHuellas += monto
+      } else {
+        if (m.destino === 'General') _ingresosGral += monto
+        else _ingresosHuellas += monto
+      }
+    })
+
+    const saldoAcumGeneral = _sumGeneral + _ingresosGral - _gastoGeneral
+    const saldoAcumHuellas = _sumHuellas + _ingresosHuellas - _gastoHuellas
+
     // ── Cálculos ────────────────────────────────────────────────────────────
     const pagosMapa      = Object.fromEntries((pagos || []).map(p => [p.id_nino, p]))
     const ninosPagados   = ninos.filter(n => pagosMapa[n.id]?.pagado)
@@ -123,6 +158,8 @@ export default function ResumenMensualPage() {
       ingresosExtra: ingresosExtra || [],
       ninosAdelantados,
       atrasadasEsteMes,
+      saldoAcumGeneral,
+      saldoAcumHuellas,
     })
     setLoading(false)
   }
@@ -152,6 +189,9 @@ export default function ResumenMensualPage() {
 
     const html = `
 <h2>📊 Resumen Financiero — ${data.mes} ${ANIO_ACTUAL}</h2>
+
+<p><strong>💰 Saldo disponible Caja General:</strong> ${fmt(data.saldoAcumGeneral)}</p>
+<p><strong>🌟 Fondo Huellas acumulado:</strong> ${fmt(data.saldoAcumHuellas)}</p>
 
 <p><strong>Cobranza del mes:</strong> ${data.ninosPagados.length} de ${data.ninos.length} niños al día (${data.porcentaje}%)</p>
 <p><strong>Total recaudado:</strong> ${fmt(data.totalRecaudado)} de ${fmt(data.totalEsperado)} esperados</p>
@@ -235,6 +275,32 @@ ${data.gastosGeneral.length > 0 || data.gastosHuellas.length > 0
               <p className="text-xs text-gray-400">Generado el</p>
               <p className="text-sm font-bold text-gray-700">{new Date().toLocaleDateString('es-CL')}</p>
             </div>
+          </div>
+
+          {/* ── SALDOS DISPONIBLES ACUMULADOS ── */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-2xl border-2 border-brand-300 bg-brand-50 p-5">
+              <p className="text-xs font-bold text-brand-600 uppercase tracking-wide mb-1">💰 Saldo disponible · Caja General</p>
+              <p className={`text-3xl font-black tabular-nums ${data.saldoAcumGeneral >= 0 ? 'text-brand-800' : 'text-red-700'}`}>
+                {fmt(data.saldoAcumGeneral)}
+              </p>
+              <p className="text-xs text-brand-500 mt-1">Total General</p>
+            </div>
+            <div className="rounded-2xl border-2 border-blue-300 bg-blue-50 p-5">
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1">🌟 Saldo acumulado · Fondo Huellas</p>
+              <p className={`text-3xl font-black tabular-nums ${data.saldoAcumHuellas >= 0 ? 'text-blue-800' : 'text-red-700'}`}>
+                {fmt(data.saldoAcumHuellas)}
+              </p>
+              <p className="text-xs text-blue-500 mt-1">Proyecto Dejando Huellas</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 my-1">
+            <div className="flex-1 h-px bg-gray-200" />
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide whitespace-nowrap px-2">
+              Detalle del mes · {data.mes}
+            </p>
+            <div className="flex-1 h-px bg-gray-200" />
           </div>
 
           {/* KPIs Caja General */}
@@ -433,7 +499,7 @@ ${data.gastosGeneral.length > 0 || data.gastosHuellas.length > 0
           </div>
 
           <div className="text-center text-xs text-gray-400 py-2">
-            Jardín Infantil Regacitos · Reporte {data.mes} {ANIO_ACTUAL} · Confidencial
+            Jardín Infantil Regacito · Reporte {data.mes} {ANIO_ACTUAL} · Confidencial
           </div>
         </div>
       )}
