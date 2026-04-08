@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -9,7 +10,7 @@ const MESES_STR   = ['3','4','5','6','7','8','9','10','11','12']
 const MESES_LABEL = { '3':'Marzo','4':'Abril','5':'Mayo','6':'Junio','7':'Julio','8':'Agosto','9':'Septiembre','10':'Octubre','11':'Noviembre','12':'Diciembre' }
 const ANIO_ACTUAL = new Date().getFullYear()
 
-const FORM_VACIO = { nombres: '', apellidos: '', rut: '', fecha_nacimiento: '', seguro_medico: '', info_contacto: '', id_apoderado: '', genero: '' }
+const FORM_VACIO = { nombres: '', apellidos: '', rut: '', fecha_nacimiento: '', seguro_medico: '', centro_salud: '', info_contacto: '', id_apoderado: '', genero: '' }
 
 // ─── Modal: Crear / Editar niño ─────────────────────────────────────────────
 function ModalNino({ nino, apoderados, onClose, onGuardado }) {
@@ -20,6 +21,7 @@ function ModalNino({ nino, apoderados, onClose, onGuardado }) {
     rut:              nino.rut              || '',
     fecha_nacimiento: nino.fecha_nacimiento || '',
     seguro_medico:    nino.seguro_medico    || '',
+    centro_salud:     nino.centro_salud     || '',
     info_contacto:    nino.info_contacto    || '',
     id_apoderado:     nino.id_apoderado     || '',
     genero:            nino.genero            || '',
@@ -41,6 +43,7 @@ function ModalNino({ nino, apoderados, onClose, onGuardado }) {
       rut:              form.rut.trim()              || null,
       fecha_nacimiento: form.fecha_nacimiento        || null,
       seguro_medico:    form.seguro_medico.trim()    || null,
+      centro_salud:     form.centro_salud.trim()     || null,
       info_contacto:    form.info_contacto.trim()    || null,
       id_apoderado:     form.id_apoderado            || null,
       genero:            form.genero            || null,
@@ -95,6 +98,12 @@ function ModalNino({ nino, apoderados, onClose, onGuardado }) {
             <label className="label">Seguro médico</label>
             <input className="input" placeholder="Ej: Fonasa A, Isapre Cruz Blanca"
               value={form.seguro_medico} onChange={set('seguro_medico')} />
+          </div>
+
+          <div>
+            <label className="label">Centro de salud</label>
+            <input className="input" placeholder="Ej: CESFAM Lo Barnechea, Clínica Alemana"
+              value={form.centro_salud} onChange={set('centro_salud')} />
           </div>
 
           <div>
@@ -316,6 +325,7 @@ export default function NinosPage() {
   const [modalNino, setModalNino] = useState(null)   
   const [modalImportar, setModalImportar] = useState(false)
   const [voucherView, setVoucherView] = useState(null); 
+  const router   = useRouter()
   const supabase = createClient()
 
   useEffect(() => { fetchAll() }, [])
@@ -323,16 +333,31 @@ export default function NinosPage() {
   async function fetchAll() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
+    let perfilData = null
     if (user) {
       const { data: p } = await supabase.from('perfiles').select('rol, nombre_completo').eq('id', user.id).single()
       setPerfil(p)
+      perfilData = p
+
+      // Apoderado: buscar su hijo vinculado y redirigir directo a la ficha
+      if (p?.rol === 'Apoderado') {
+        const { data: hijo } = await supabase
+          .from('ninos').select('id').eq('id_apoderado', user.id).eq('activo', true).single()
+        if (hijo) {
+          router.push(`/dashboard/ninos/${hijo.id}`)
+          return
+        }
+        // Si no tiene hijo vinculado, mostrar mensaje vacío
+        setLoading(false)
+        return
+      }
     }
     const { data: n } = await supabase
       .from('ninos')
       .select('*')
       .eq('activo', true)
-      .order('nombres', { ascending: true })   
-      .order('apellidos', { ascending: true }); 
+      .order('nombres', { ascending: true })
+      .order('apellidos', { ascending: true });
       
     // CORRECCIÓN: Pedimos TODOS los datos (*) para que el voucher tenga la info completa
     const { data: c } = await supabase.from('pagos_cuotas').select('*').eq('anio', ANIO_ACTUAL)
@@ -438,6 +463,7 @@ Se eliminarán también sus registros de cuotas.`)) return
   const puedeMarcarPagos    = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
   const puedeGestionarNinos = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero' || perfil?.rol === 'Secretario'
   const puedeEditar         = puedeGestionarNinos
+  const esEducador          = perfil?.rol === 'Educador'
   const esAdmin             = perfil?.rol === 'Admin'
 
   if (loading) return (
@@ -475,6 +501,7 @@ Se eliminarán también sus registros de cuotas.`)) return
           <h1 className="text-2xl font-bold text-gray-900">Niñas y Niños</h1>
           <p className="text-gray-500 text-sm mt-1">{ninos.length} inscritos activos · {ANIO_ACTUAL}</p>
         </div>
+        
         {puedeGestionarNinos && (
           <div className="flex gap-3">
             <button onClick={() => setModalImportar(true)} className="btn-secondary flex items-center gap-2 text-xs sm:text-sm">
@@ -494,6 +521,46 @@ Se eliminarán también sus registros de cuotas.`)) return
       </div>
 
       {/* CONTENEDOR DE LA LISTA */}
+      {esEducador ? (
+        /* ── Vista Educador: tarjetas sin cuotas ── */
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {filtered.map(nino => {
+            const edad = nino.fecha_nacimiento
+              ? Math.floor((new Date() - new Date(nino.fecha_nacimiento)) / (365.25 * 24 * 60 * 60 * 1000))
+              : null
+            const iniciales = `${(nino.nombres||'').charAt(0)}${(nino.apellidos||'').charAt(0)}`.toUpperCase()
+            const generoColor = nino.genero === 'Niña' ? 'from-pink-100 to-pink-50 border-pink-200' : 'from-sky-100 to-sky-50 border-sky-200'
+            const inicialesColor = nino.genero === 'Niña' ? 'bg-pink-200 text-pink-700' : 'bg-sky-200 text-sky-700'
+            return (
+              <a key={nino.id} href={`/dashboard/ninos/${nino.id}`}
+                className={`bg-gradient-to-b ${generoColor} border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer block`}>
+                {/* Avatar */}
+                <div className="flex items-center justify-center pt-6 pb-3">
+                  <div className={`w-16 h-16 rounded-full ${inicialesColor} flex items-center justify-center text-xl font-black shadow-sm`}>
+                    {iniciales}
+                  </div>
+                </div>
+                {/* Info */}
+                <div className="px-3 pb-4 text-center">
+                  <p className="font-black text-gray-800 text-sm leading-tight">{nino.nombres}</p>
+                  <p className="font-black text-gray-600 text-xs leading-tight">{nino.apellidos}</p>
+                  <div className="mt-2 flex items-center justify-center gap-1.5">
+                    {nino.genero && <span className="text-xs">{nino.genero === 'Niña' ? '👧' : '👦'}</span>}
+                    {edad !== null && <span className="text-[10px] font-bold text-gray-400">{edad} {edad === 1 ? 'año' : 'años'}</span>}
+                  </div>
+                </div>
+                {/* Footer */}
+                <div className="bg-white/60 border-t border-white/80 px-3 py-2 text-center">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-wide">Ver ficha →</span>
+                </div>
+              </a>
+            )
+          })}
+          {filtered.length === 0 && (
+            <div className="col-span-full text-center py-12 text-gray-400">No se encontraron niños</div>
+          )}
+        </div>
+      ) : (
       <div className="mt-6 w-full max-w-full">
         {/* 📱 VISTA MÓVIL (Tarjetas - iPhone SE friendly) */}
         <div className="grid grid-cols-1 gap-4 md:hidden w-full">
@@ -625,6 +692,7 @@ Se eliminarán también sus registros de cuotas.`)) return
           </table>
         </div>
       </div>
+      )}{/* end esEducador ternary */}
 
       {/* =========================================
           MODAL DEL VOUCHER

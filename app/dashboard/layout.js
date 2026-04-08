@@ -6,10 +6,10 @@ import Link from 'next/link'
 
 const NAV = [
   { href: '/dashboard',                     label: 'Resumen',        icon: '📊', roles: ['Admin','Tesorero','Secretario','Apoderado'] },
-  { href: '/dashboard/ninos',               label: 'Niñas y Niños',  icon: '👧', roles: ['Admin','Tesorero','Secretario','Apoderado'] },
+  { href: '/dashboard/ninos',               label: 'Niñas y Niños',  icon: '👧', roles: ['Admin','Tesorero','Secretario','Educador','Apoderado'] },
   { href: '/dashboard/gastos',              label: 'Finanzas',       icon: '🧾', roles: ['Admin','Tesorero'] },
   { href: '/dashboard/resumen',             label: 'Reporte Mensual',icon: '📋', roles: ['Admin','Tesorero','Secretario'] },
-  { href: '/dashboard/comunidad',           label: 'Comunidad',      icon: '📢', roles: ['Admin','Tesorero','Secretario','Apoderado'] },
+  { href: '/dashboard/comunidad',           label: 'Comunidad',      icon: '📢', roles: ['Admin','Tesorero','Secretario','Educador','Apoderado'] },
   { href: '/dashboard/admin',               label: 'Usuarios',       icon: '👥', roles: ['Admin','Secretario'] },
   { href: '/dashboard/admin/configuracion', label: 'Configuración',  icon: '⚙️', roles: ['Admin'] },
 ]
@@ -19,6 +19,7 @@ function RolBadge({ rol }) {
     Admin:      'bg-brand-100 text-brand-800',
     Tesorero:   'bg-blue-100 text-blue-800',
     Secretario: 'bg-violet-100 text-violet-800',
+    Educador:   'bg-orange-100 text-orange-800',
     Apoderado:  'bg-emerald-100 text-emerald-800',
   }[rol] || 'bg-gray-100 text-gray-600'
   return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{rol}</span>
@@ -238,12 +239,12 @@ export default function DashboardLayout({ children }) {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        setBuscadorOpen(true)
+        if (!['Apoderado'].includes(perfil?.rol)) setBuscadorOpen(true)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [perfil])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -265,15 +266,17 @@ export default function DashboardLayout({ children }) {
         </Link>
       </div>
 
-      {/* Buscador rápido */}
-      <div className="px-3 pt-3 pb-1">
-        <button onClick={() => { setBuscadorOpen(true); setSidebarOpen(false) }}
-          className="w-full flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/15 rounded-xl text-brand-200 text-sm transition-colors">
-          <span>🔍</span>
-          <span className="flex-1 text-left text-xs">Buscar...</span>
-          <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded font-mono">⌘K</span>
-        </button>
-      </div>
+      {/* Buscador rápido — solo roles con acceso amplio */}
+      {!['Apoderado'].includes(perfil?.rol) && (
+        <div className="px-3 pt-3 pb-1">
+          <button onClick={() => { setBuscadorOpen(true); setSidebarOpen(false) }}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/15 rounded-xl text-brand-200 text-sm transition-colors">
+            <span>🔍</span>
+            <span className="flex-1 text-left text-xs">Buscar...</span>
+            <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded font-mono">⌘K</span>
+          </button>
+        </div>
+      )}
 
       <nav className="flex-1 px-3 py-3 space-y-0.5">
         {navItems.map(item => {
@@ -336,7 +339,10 @@ export default function DashboardLayout({ children }) {
         <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-20">
           <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 text-xl">☰</button>
           <span className="font-bold text-brand-900">Regacitos</span>
-          <button onClick={() => setBuscadorOpen(true)} className="p-2 rounded-lg hover:bg-gray-100">🔍</button>
+          {!['Apoderado'].includes(perfil?.rol)
+            ? <button onClick={() => setBuscadorOpen(true)} className="p-2 rounded-lg hover:bg-gray-100">🔍</button>
+            : <div className="w-9" />
+          }
         </header>
 
         <main className="flex-1 p-3 sm:p-5 md:p-8 w-full max-w-full overflow-x-hidden">

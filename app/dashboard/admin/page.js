@@ -2,11 +2,12 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-const TODOS_ROLES   = ['Admin', 'Tesorero', 'Secretario', 'Apoderado']
+const TODOS_ROLES   = ['Admin', 'Tesorero', 'Secretario', 'Educador', 'Apoderado']
 const ROL_STYLE = {
   Admin:      'bg-amber-100 text-amber-800',
   Tesorero:   'bg-blue-100 text-blue-800',
   Secretario: 'bg-violet-100 text-violet-800',
+  Educador:   'bg-orange-100 text-orange-800',
   Apoderado:  'bg-emerald-100 text-emerald-800',
 }
 
@@ -17,6 +18,7 @@ function RolBadge({ rol }) {
 function ModalCrear({ rolPropio, onClose, onCreado }) {
   const esAdmin = rolPropio === 'Admin'
   // Secretario solo puede crear Apoderados
+  const esSecretario = rolPropio === 'Secretario'
   const rolesDisponibles = esAdmin ? TODOS_ROLES : ['Apoderado']
 
   const [form, setForm] = useState({ email: '', nombre_completo: '', rut: '', rol: rolesDisponibles[rolesDisponibles.length - 1] })
@@ -28,20 +30,30 @@ function ModalCrear({ rolPropio, onClose, onCreado }) {
     e.preventDefault()
     setGuardando(true)
     setError('')
+
     try {
-      const { data, error: authErr } = await supabase.auth.signUp({
-        email: form.email, password: '123456',
+      // Llamamos a nuestra propia API en lugar del cliente de Supabase
+      const res = await fetch('/api/crear-usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          password: '123456',
+          nombre_completo: form.nombre_completo,
+          rut: form.rut,
+          rol: form.rol
+        }),
       })
-      if (authErr) throw authErr
-      if (!data.user) throw new Error('No se pudo crear el usuario')
-      const { error: perfilErr } = await supabase.from('perfiles').insert([{
-        id: data.user.id, nombre_completo: form.nombre_completo,
-        rut: form.rut, rol: form.rol, email: form.email,
-        creado_at: new Date().toISOString(),
-      }])
-      if (perfilErr) throw perfilErr
+
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Ocurrió un error al crear el usuario')
+      }
+
       onCreado()
       onClose()
+
     } catch (err) {
       setError(err.message)
     } finally {

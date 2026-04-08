@@ -24,16 +24,12 @@ const mensajesEspañol = {
   showMore: total => `+ Ver más (${total})`
 }
 
-
 // ── Editor de texto enriquecido (sin dependencias externas) ─────────────────
-// Usa contentEditable del navegador: pegar desde Word preserva negritas, listas, etc.
 function RichEditor({ value, onChange, className = '' }) {
   const ref = React.useRef(null)
   const [mounted, setMounted] = React.useState(false)
 
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
+  React.useEffect(() => { setMounted(true) }, [])
 
   React.useEffect(() => {
     if (mounted && ref.current && ref.current.innerHTML !== value) {
@@ -56,7 +52,6 @@ function RichEditor({ value, onChange, className = '' }) {
 
   return (
     <div className={`border border-gray-200 rounded-xl overflow-hidden bg-white ${className}`}>
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50">
         <ToolBtn icon="B" title="Negrita" action={() => cmd('bold')} />
         <ToolBtn icon="I" title="Cursiva" action={() => cmd('italic')} />
@@ -70,7 +65,6 @@ function RichEditor({ value, onChange, className = '' }) {
         <span className="w-px h-5 bg-gray-200 mx-1" />
         <ToolBtn icon="✕" title="Limpiar formato" action={() => cmd('removeFormat')} />
       </div>
-      {/* Área editable */}
       <div
         ref={ref}
         contentEditable
@@ -101,12 +95,12 @@ export default function ComunidadPage() {
 
   const [mostrarFormAnuncio, setMostrarFormAnuncio] = useState(false)
   const [nuevoAnuncio, setNuevoAnuncio] = useState({ titulo: '', contenido: '' })
-  const [anuncioVista, setAnuncioVista] = useState(null) // modal de lectura
-  const [editandoAnuncio, setEditandoAnuncio] = useState(null) // modal de edición
+  const [anuncioVista, setAnuncioVista] = useState(null) 
+  const [editandoAnuncio, setEditandoAnuncio] = useState(null) 
 
-  // --- ESTADOS PARA EL MODAL DEL CALENDARIO ---
-  const [eventoModal, setEventoModal] = useState(null) // null = cerrado, object = abierto
+  const [eventoModal, setEventoModal] = useState(null) 
   const [guardandoEvento, setGuardandoEvento] = useState(false)
+  const [fechaCalendario, setFechaCalendario] = useState(new Date())
 
   const supabase = createClient()
 
@@ -167,19 +161,18 @@ export default function ComunidadPage() {
     fetchData()
   }
 
-  // --- LÓGICA DEL CALENDARIO (Google Calendar Style) ---
+  // --- LÓGICA DEL CALENDARIO ---
   const esAdmin       = perfil?.rol === 'Admin' || perfil?.rol === 'Tesorero'
-  const puedePublicar = esAdmin || perfil?.rol === 'Secretario'
-  // Secretario solo edita/elimina sus propios avisos; Admin/Tesorero pueden con todos
+  const puedePublicar = esAdmin || perfil?.rol === 'Secretario' || perfil?.rol === 'Educador'
+  
   const puedeEditarAnuncio = (anuncio) => {
     if (esAdmin) return true
-    if (perfil?.rol === 'Secretario') return anuncio.id_autor === userId
+    if (['Secretario','Educador'].includes(perfil?.rol)) return anuncio.id_autor === userId
     return false
   }
 
-  // Al hacer clic en un cuadro de un día vacío
   const handleSelectSlot = ({ start }) => {
-    if (!esAdmin) return;
+    if (!puedePublicar) return; // Ahora todos los autorizados pueden crear eventos
     setEventoModal({
       isNew: true,
       titulo: '',
@@ -189,24 +182,21 @@ export default function ComunidadPage() {
     });
   }
 
-  // Al hacer clic en un evento ya creado
   const handleSelectEvent = (event) => {
     setEventoModal({
       isNew: false,
       id: event.id,
-      titulo: event.title, // <--- AQUÍ ESTÁ LA MAGIA: pasamos 'title' a 'titulo'
+      titulo: event.title, 
       descripcion: event.descripcion,
       tipo: event.tipo,
       fecha: format(event.start, 'yyyy-MM-dd')
     });
   }
 
-  // Guardar o Actualizar Evento
   const handleGuardarEvento = async (e) => {
     e.preventDefault()
     setGuardandoEvento(true)
     
-    // Configurar fechas para que abarquen todo el día seleccionado
     const fechaInicio = new Date(`${eventoModal.fecha}T00:00:00`).toISOString();
     const fechaFin = new Date(`${eventoModal.fecha}T23:59:59`).toISOString();
 
@@ -233,7 +223,6 @@ export default function ComunidadPage() {
     fetchData()
   }
 
-  // Borrar evento
   const handleBorrarEvento = async () => {
     if(!confirm('¿Estás seguro de eliminar esta actividad?')) return;
     await supabase.from('comunidad_eventos').delete().eq('id', eventoModal.id);
@@ -241,53 +230,52 @@ export default function ComunidadPage() {
     fetchData();
   }
 
-  // Colores dinámicos para los eventos
+  // Estilos de los "pills" de eventos
   const eventStyleGetter = (event) => {
-    let backgroundColor = '#2D8465' // brand-500
-    if (event.tipo === 'Feriado') backgroundColor = '#ef4444' // rojo
-    if (event.tipo === 'Reunión') backgroundColor = '#f59e0b' // ambar
+    let backgroundColor = '#2D8465' 
+    if (event.tipo === 'Feriado') backgroundColor = '#ef4444' 
+    if (event.tipo === 'Reunión') backgroundColor = '#f59e0b' 
     
     return {
       style: {
         backgroundColor,
-        borderRadius: '6px',
-        opacity: 0.95,
         color: 'white',
+        borderRadius: '9999px',
         border: 'none',
         display: 'block',
         fontSize: '11px',
         fontWeight: 'bold',
-        padding: '3px 6px',
-        margin: '1px 3px'
+        padding: '3px 8px',
+        margin: '2px 4px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }
     }
   }
-
-  // Add state for controlling calendar navigation
-  const [fechaCalendario, setFechaCalendario] = useState(new Date());
 
   if (loading) return <div className="p-10 text-center animate-pulse text-brand-500 font-bold">Cargando comunidad...</div>
 
   return (
     <div className="max-w-7xl mx-auto pb-20">
       
-      {/* ESTILOS CSS INYECTADOS PARA TRANSFORMAR EL CALENDARIO */}
+      {/* MEGA UPGRADE VISUAL DEL CALENDARIO */}
       <style dangerouslySetInnerHTML={{ __html: `
-        .rbc-calendar { font-family: inherit; min-height: 700px; }
-        .rbc-month-view { border: 1px solid #f3f4f6; border-radius: 1.5rem; overflow: hidden; background: white; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
-        .rbc-header { padding: 12px 0; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; color: #9ca3af; border-bottom: 1px solid #f3f4f6; border-left: none; }
-        .rbc-day-bg { border-left: 1px solid #f3f4f6; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: all 0.2s; }
+        .rbc-calendar { font-family: inherit; min-height: 750px; }
+        .rbc-month-view { border: 1px solid #f3f4f6; border-radius: 2rem; overflow: hidden; background: white; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }
+        .rbc-header { padding: 16px 0; font-weight: 900; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; color: #9ca3af; border-bottom: 1px solid #f3f4f6; border-left: none; }
+        .rbc-day-bg { border-left: 1px solid #f3f4f6; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background-color 0.2s ease; }
         .rbc-day-bg:hover { background-color: #f8fafc; }
-        .rbc-today { background-color: #f0fdf4; }
-        .rbc-toolbar { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-        .rbc-toolbar button { border-radius: 0.75rem; border: 1px solid #e5e7eb; color: #4b5563; font-weight: 600; padding: 0.5rem 1rem; transition: all 0.2s; background: white; }
-        .rbc-toolbar button:hover { background-color: #f3f4f6; }
-        .rbc-toolbar button.rbc-active { background-color: #f3f4f6; color: #111827; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); }
-        .rbc-toolbar-label { font-weight: 900; font-size: 1.25rem; color: #1f2937; text-transform: capitalize; }
-        .rbc-date-cell { font-weight: 700; font-size: 0.85rem; padding: 8px; color: #4b5563; }
+        .rbc-today { background-color: #f0fdf4 !important; }
+        .rbc-toolbar { margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; padding: 0 0.5rem; }
+        .rbc-toolbar button { border-radius: 1rem; border: 1px solid #e5e7eb; color: #4b5563; font-weight: 700; padding: 0.5rem 1.25rem; transition: all 0.2s; background: white; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); cursor: pointer; }
+        .rbc-toolbar button:hover { background-color: #f9fafb; border-color: #d1d5db; }
+        .rbc-toolbar button.rbc-active { background-color: #2D8465; color: white; border-color: #2D8465; box-shadow: 0 4px 6px -1px rgba(45, 132, 101, 0.25); }
+        .rbc-toolbar-label { font-weight: 900; font-size: 1.5rem; color: #111827; text-transform: capitalize; letter-spacing: -0.025em; }
+        .rbc-date-cell { font-weight: 800; font-size: 0.9rem; padding: 10px; color: #374151; }
         .rbc-off-range-bg { background-color: #fafafa; }
         .rbc-off-range .rbc-date-cell { color: #d1d5db; }
-        .rbc-event-content { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+        .rbc-event { transition: transform 0.15s ease; border: none !important; }
+        .rbc-event:hover { transform: scale(1.02); }
+        .rbc-event-content { font-size: 0.7rem; font-weight: 800; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; text-align: center; }
         .prose-anuncio h1,.prose-anuncio h2,.prose-anuncio h3 { font-weight: 800; margin: 0.75rem 0 0.25rem; color: #111827; }
         .prose-anuncio h1 { font-size: 1.25rem; } .prose-anuncio h2 { font-size: 1.1rem; } .prose-anuncio h3 { font-size: 1rem; }
         .prose-anuncio p { margin: 0.5rem 0; }
@@ -344,7 +332,6 @@ export default function ComunidadPage() {
             </form>
           )}
 
-          {/* Modal de lectura */}
           {anuncioVista && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4"
               onClick={() => setAnuncioVista(null)}>
@@ -385,7 +372,6 @@ export default function ComunidadPage() {
             </div>
           )}
 
-          {/* Modal de edición */}
           {editandoAnuncio && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4">
               <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-2xl p-6 max-h-[92vh] overflow-y-auto">
@@ -395,20 +381,20 @@ export default function ComunidadPage() {
                 </div>
                 <form onSubmit={handleEditarAnuncio} className="space-y-4">
                   <div>
-                    <label className="label">Título</label>
-                    <input required className="input" value={editandoAnuncio.titulo}
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 block">Título</label>
+                    <input required className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none" value={editandoAnuncio.titulo}
                       onChange={e => setEditandoAnuncio({ ...editandoAnuncio, titulo: e.target.value })} />
                   </div>
                   <div>
-                    <label className="label">Contenido</label>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 block">Contenido</label>
                     <RichEditor
                       value={editandoAnuncio.contenido}
                       onChange={val => setEditandoAnuncio({ ...editandoAnuncio, contenido: val })}
                     />
                   </div>
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setEditandoAnuncio(null)} className="btn-secondary flex-1">Cancelar</button>
-                    <button type="submit" className="btn-primary flex-1">Guardar cambios</button>
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => setEditandoAnuncio(null)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors">Cancelar</button>
+                    <button type="submit" className="flex-1 py-3 bg-brand-500 hover:bg-brand-600 text-white font-black rounded-xl transition-all shadow-md">Guardar cambios</button>
                   </div>
                 </form>
               </div>
@@ -449,14 +435,13 @@ export default function ComunidadPage() {
               <h2 className="font-black text-gray-800 flex items-center gap-2">
                 <span>📅</span> Calendario Interactivo
               </h2>
-              <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-brand-500"></span> Actividad</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Reunión</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Feriado</span>
+              <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100">
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-brand-500"></span> Actividad</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Reunión</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Feriado</span>
               </div>
             </div>
 
-            {/* El calendario en sí */}
             <div className="font-sans">
               <Calendar
                 localizer={localizer}
@@ -466,12 +451,11 @@ export default function ComunidadPage() {
                 culture="es"
                 messages={mensajesEspañol}
                 eventPropGetter={eventStyleGetter}
-                views={['month']} // Limitamos a mes para mantenerlo simple como un mural
+                views={['month']}
                 defaultView="month"
                 selectable={puedePublicar}
                 onSelectSlot={handleSelectSlot}
                 onSelectEvent={handleSelectEvent}
-                // Pass the date and navigation handler
                 date={fechaCalendario}
                 onNavigate={(nuevaFecha) => setFechaCalendario(nuevaFecha)}
               />
@@ -503,7 +487,7 @@ export default function ComunidadPage() {
                   <input 
                     type="text" required disabled={!puedePublicar}
                     value={eventoModal.titulo} onChange={e => setEventoModal({...eventoModal, titulo: e.target.value})} 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white" 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white disabled:text-gray-700" 
                     placeholder="Ej: Día del Carabinero"
                   />
                 </div>
@@ -513,7 +497,7 @@ export default function ComunidadPage() {
                   <input 
                     type="date" required disabled={!puedePublicar}
                     value={eventoModal.fecha} onChange={e => setEventoModal({...eventoModal, fecha: e.target.value})} 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white" 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white disabled:text-gray-700" 
                   />
                 </div>
 
@@ -522,7 +506,7 @@ export default function ComunidadPage() {
                   <select 
                     value={eventoModal.tipo} disabled={!puedePublicar}
                     onChange={e => setEventoModal({...eventoModal, tipo: e.target.value})} 
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:bg-white disabled:text-gray-700"
                   >
                     <option value="Actividad">Actividad Regular</option>
                     <option value="Reunión">Reunión Apoderados</option>
@@ -536,12 +520,11 @@ export default function ComunidadPage() {
                 <textarea 
                   rows="3" disabled={!puedePublicar}
                   value={eventoModal.descripcion} onChange={e => setEventoModal({...eventoModal, descripcion: e.target.value})} 
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-none disabled:bg-white" 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-none disabled:bg-white disabled:text-gray-700" 
                   placeholder="Detalles sobre vestimenta, materiales a llevar, etc..."
                 ></textarea>
               </div>
 
-              {/* Botones según rol */}
               <div className="pt-4 border-t border-gray-100 flex gap-3">
                 {puedePublicar ? (
                   <>

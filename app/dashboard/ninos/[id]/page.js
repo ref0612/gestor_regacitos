@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import CuadernoDiario from '@/app/dashboard/ninos/cuaderno'
 import { useParams } from 'next/navigation'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -19,6 +20,7 @@ export default function NinoDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({})
   const [guardando, setGuardando] = useState(false)
+  const [userId, setUserId] = useState(null)
 
   const supabase = createClient()
   const MESES_DB = ['Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -33,6 +35,7 @@ export default function NinoDetailPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: p } = await supabase.from('perfiles').select('*').eq('id', user.id).single()
     setPerfil(p)
+    setUserId(user?.id)
 
     // 2. Obtener la lista de TODOS los apoderados para el Drop List
     const { data: apoderados } = await supabase.from('perfiles').select('id, nombre_completo').eq('rol', 'Apoderado')
@@ -84,6 +87,7 @@ export default function NinoDetailPage() {
         genero: formData.genero,
         fecha_nacimiento: formData.fecha_nacimiento,
         seguro_medico: formData.seguro_medico,
+        centro_salud:  formData.centro_salud,
         info_contacto: formData.info_contacto, // Ahora usado para el Teléfono
         id_apoderado: formData.id_apoderado // Guardando la relación correcta
       })
@@ -117,13 +121,13 @@ export default function NinoDetailPage() {
         <span className="text-lg">←</span> Volver al directorio
       </Link>
 
+      {/* =========================================
+          SECCIÓN SUPERIOR: INFO + CUADERNO
+      ========================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* =========================================
-            COLUMNA IZQUIERDA
-        ========================================== */}
+        {/* COLUMNA IZQUIERDA: Info del Niño */}
         <div className="lg:col-span-4 space-y-6">
-          
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-24 bg-brand-50"></div>
             
@@ -175,7 +179,25 @@ export default function NinoDetailPage() {
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] font-black text-gray-400 uppercase">Teléfono / Contacto</span>
-                <span className="font-bold text-gray-700">{nino.info_contacto || 'No registrado'}</span>
+                {nino.info_contacto ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-700">{nino.info_contacto}</span>
+                    <a
+                      href={`https://wa.me/${nino.info_contacto.replace(/[^0-9]/g, '').replace(/^56/, '').replace(/^0/, '').replace(/^/, '56')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Abrir en WhatsApp"
+                      className="flex-shrink-0 w-7 h-7 bg-[#25D366] hover:bg-[#1ebe5d] rounded-full flex items-center justify-center transition-colors shadow-sm"
+                    >
+                      <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.17 1.535 5.963L0 24l6.23-1.503A11.954 11.954 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.007-1.37l-.36-.213-3.7.893.934-3.604-.234-.372A9.818 9.818 0 0112 2.182c5.426 0 9.818 4.392 9.818 9.818 0 5.427-4.392 9.818-9.818 9.818z"/>
+                      </svg>
+                    </a>
+                  </div>
+                ) : (
+                  <span className="font-bold text-gray-700">No registrado</span>
+                )}
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] font-black text-gray-400 uppercase">F. Nacimiento</span>
@@ -185,81 +207,101 @@ export default function NinoDetailPage() {
                 <span className="text-[10px] font-black text-gray-400 uppercase">Seguro Médico / Alergias</span>
                 <span className="font-bold text-gray-700">{nino.seguro_medico || 'No registrado'}</span>
               </li>
+              <li className="flex flex-col">
+                <span className="text-[10px] font-black text-gray-400 uppercase">Centro de Salud</span>
+                <span className="font-bold text-gray-700">{nino.centro_salud || 'No registrado'}</span>
+              </li>
             </ul>
           </div>
         </div>
 
-        {/* =========================================
-            COLUMNA DERECHA
-        ========================================== */}
+        {/* COLUMNA DERECHA: Cuaderno Diario (Siempre al lado de la Info) */}
         <div className="lg:col-span-8">
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black text-gray-800 flex items-center gap-2 text-sm uppercase tracking-wide">
-                <span className="w-2 h-2 bg-accent-500 rounded-full animate-pulse" /> 
-                Control de Mensualidades ${new Date().getFullYear()}
-              </h3>
-              <span className="px-3 py-1 bg-brand-50 text-brand-700 text-[10px] font-black rounded-full uppercase">
-                {pagos.length === 10 ? 'AL DÍA 🏆' : 'PENDIENTE'}
-              </span>
-            </div>
-
-            <div className="divide-y divide-gray-50">
-              {MESES_DB.map((mes, idx) => {  // idx 0=Marzo, 1=Abril...
-                const pagoRealizado = pagos.find(p => p.mes === mes);
-                const estaPagado = !!pagoRealizado;
-
-                return (
-                  <div key={mes} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors rounded-xl px-2">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-sm border ${
-                        estaPagado ? 'bg-brand-500 text-white border-brand-500' : 'bg-gray-50 text-gray-400 border-gray-100'
-                      }`}>
-                        {estaPagado ? '✓' : idx + 3}
-                      </div>
-                      <div>
-                        <p className={`font-black ${estaPagado ? 'text-gray-900' : 'text-gray-400'}`}>{mes}</p>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Mensualidad regular</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 w-full sm:w-auto ml-16 sm:ml-0">
-                      {estaPagado ? (
-                        <button 
-                          onClick={() => setVoucherView({ nino, pago: pagoRealizado })}
-                          className="flex-1 sm:flex-none text-[10px] bg-luna-50 text-luna-600 hover:bg-luna-100 font-black px-4 py-2 rounded-xl uppercase transition-colors flex items-center justify-center gap-1 border border-luna-100"
-                        >
-                          🧾 Voucher
-                        </button>
-                      ) : (
-                        <span className="flex-1 sm:flex-none text-[10px] text-gray-300 font-black px-4 py-2 uppercase text-center">
-                          Sin registrar
-                        </span>
-                      )}
-
-                      {puedeToggle && (
-                        <button 
-                          onClick={() => togglePago(mes, idx)}
-                          className={`flex-1 sm:flex-none text-[10px] font-black px-6 py-2 rounded-xl uppercase transition-all shadow-sm border ${
-                            estaPagado 
-                              ? 'bg-white text-red-500 border-red-100 hover:bg-red-50' 
-                              : 'bg-accent-500 text-white border-accent-600 hover:bg-accent-600'
-                          }`}
-                        >
-                          {estaPagado ? 'Revertir' : 'Registrar Pago'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <CuadernoDiario
+            idNino={params.id}
+            nombreNino={nino ? `${nino.nombres} ${nino.apellidos}` : ''}
+            perfil={perfil}
+            idUsuario={userId}
+          />
         </div>
-      </div>
+
+      </div> {/* Fin del Grid Superior */}
 
       {/* =========================================
-          MODAL DE EDICIÓN (CORREGIDO)
+          SECCIÓN INFERIOR: CUOTAS (Oculto para Educadores)
+      ========================================== */}
+      {perfil?.rol !== 'Educador' && (
+        <div className="mt-8 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-sm border border-gray-100">
+          
+          {/* Header Responsivo */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <h3 className="font-black text-gray-800 flex items-start sm:items-center gap-2 text-xs sm:text-sm uppercase tracking-wide leading-tight">
+              <span className="w-2 h-2 bg-accent-500 rounded-full animate-pulse mt-1 sm:mt-0 flex-shrink-0" /> 
+              <span>Control de <br className="sm:hidden" /> Mensualidades {new Date().getFullYear()}</span>
+            </h3>
+            <span className="px-3 py-1.5 bg-brand-50 text-brand-700 text-[10px] font-black rounded-full uppercase self-start sm:self-auto">
+              {pagos.length === 10 ? 'AL DÍA 🏆' : 'PENDIENTE'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1 sm:gap-y-2">
+            {MESES_DB.map((mes, idx) => {  // idx 0=Marzo, 1=Abril...
+              const pagoRealizado = pagos.find(p => p.mes === mes);
+              const estaPagado = !!pagoRealizado;
+
+              return (
+                <div key={mes} className="py-4 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-gray-50/50 transition-colors">
+                  
+                  {/* Info del Mes */}
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-base sm:text-lg shadow-sm border ${
+                      estaPagado ? 'bg-brand-500 text-white border-brand-500' : 'bg-gray-50 text-gray-400 border-gray-100'
+                    }`}>
+                      {estaPagado ? '✓' : idx + 3}
+                    </div>
+                    <div>
+                      <p className={`text-sm sm:text-base font-black leading-none mb-1.5 ${estaPagado ? 'text-gray-900' : 'text-gray-400'}`}>{mes}</p>
+                      <p className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase leading-none">Mensualidad regular</p>
+                    </div>
+                  </div>
+
+                  {/* Botones de Acción (Ocupan todo el ancho en móvil) */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {estaPagado ? (
+                      <button 
+                        onClick={() => setVoucherView({ nino, pago: pagoRealizado })}
+                        className="flex-1 sm:flex-none text-[10px] bg-luna-50 text-luna-600 hover:bg-luna-100 font-black px-3 py-2.5 rounded-xl uppercase transition-colors flex items-center justify-center gap-1 border border-luna-100"
+                      >
+                        🧾 Voucher
+                      </button>
+                    ) : (
+                      <span className="flex-1 sm:flex-none text-[10px] text-gray-400 bg-gray-50 font-black px-3 py-2.5 rounded-xl uppercase text-center border border-gray-100">
+                        Sin registrar
+                      </span>
+                    )}
+
+                    {puedeToggle && (
+                      <button 
+                        onClick={() => togglePago(mes, idx)}
+                        className={`flex-1 sm:flex-none text-[10px] font-black px-3 py-2.5 rounded-xl uppercase transition-all shadow-sm border ${
+                          estaPagado 
+                            ? 'bg-white text-red-500 border-red-100 hover:bg-red-50' 
+                            : 'bg-accent-500 text-white border-accent-600 hover:bg-accent-600'
+                        }`}
+                      >
+                        {estaPagado ? 'Revertir' : 'Registrar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* =========================================
+          MODAL DE EDICIÓN 
       ========================================== */}
       {isEditing && (
         <div className="fixed inset-0 bg-brand-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
@@ -296,7 +338,7 @@ export default function NinoDetailPage() {
                 </div>
               </div>
 
-              {/* NUEVO: Drop List para Apoderado */}
+              {/* Drop List para Apoderado */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Apoderado Asignado</label>
                 <select 
@@ -312,7 +354,7 @@ export default function NinoDetailPage() {
                 </select>
               </div>
 
-              {/* REEMPLAZO: Input de Teléfono en lugar de textarea */}
+              {/* Input de Teléfono */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Teléfono de Contacto</label>
                 <input 
@@ -332,6 +374,10 @@ export default function NinoDetailPage() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Seguro / Alergias</label>
                   <input type="text" value={formData.seguro_medico || ''} onChange={e => setFormData({...formData, seguro_medico: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: Fonasa" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Centro de Salud</label>
+                  <input type="text" value={formData.centro_salud || ''} onChange={e => setFormData({...formData, centro_salud: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: CESFAM Lo Barnechea, Clínica Alemana" />
                 </div>
               </div>
 
@@ -358,6 +404,7 @@ export default function NinoDetailPage() {
           onClose={() => setVoucherView(null)} 
         />
       )}
+
     </div>
   )
 }
