@@ -9,6 +9,47 @@ const FORM_VACIO = {
   comprobante: null,
 }
 
+// ── Función de Compresión de Imágenes (La magia para no gastar espacio) ──────
+const comprimirImagen = (file) => {
+  return new Promise((resolve) => {
+    // Si por alguna razón el usuario sube un archivo que no es imagen (ej: PDF), lo dejamos pasar tal cual
+    if (!file.type.startsWith('image/')) {
+      resolve(file)
+      return
+    }
+
+    const img = new Image()
+    img.src = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(img.src)
+      const canvas = document.createElement('canvas')
+      
+      const MAX_WIDTH = 800 // Resolución ideal para leer documentos
+      let width = img.width
+      let height = img.height
+
+      // Achicamos la imagen manteniendo las proporciones
+      if (width > MAX_WIDTH) {
+        height = Math.round((height * MAX_WIDTH) / width)
+        width = MAX_WIDTH
+      }
+
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, width, height)
+
+      // Exportamos a JPG comprimido al 60% de calidad
+      canvas.toBlob((blob) => {
+        const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+          type: 'image/jpeg'
+        })
+        resolve(newFile)
+      }, 'image/jpeg', 0.6) 
+    }
+  })
+}
+
 // ── Modal Crear / Editar ─────────────────────────────────────────────────────
 function ModalMovimiento({ mov, categorias, onClose, onGuardado }) {
   const esEdicion = !!mov
@@ -38,10 +79,15 @@ function ModalMovimiento({ mov, categorias, onClose, onGuardado }) {
       let comprobante_url = mov?.comprobante_url || null
 
       if (form.comprobante) {
-        const ext  = form.comprobante.name.split('.').pop()
-        const path = `${Date.now()}.${ext}`
-        const { error: upErr } = await supabase.storage.from('comprobantes').upload(path, form.comprobante)
+        // 🚨 AQUÍ COMPRIMIMOS LA IMAGEN ANTES DE SUBIRLA 🚨
+        const archivoComprimido = await comprimirImagen(form.comprobante)
+        
+        const ext  = archivoComprimido.name.split('.').pop()
+        const path = `comprimido_${Date.now()}.${ext}`
+        
+        const { error: upErr } = await supabase.storage.from('comprobantes').upload(path, archivoComprimido)
         if (upErr) throw new Error('Error al subir imagen: ' + upErr.message)
+        
         const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(path)
         comprobante_url = urlData.publicUrl
       }
@@ -161,6 +207,9 @@ function ModalMovimiento({ mov, categorias, onClose, onGuardado }) {
                 <img src={fotoPreview} alt="preview" className="mt-2 w-full rounded-lg object-cover max-h-32 cursor-pointer hover:opacity-80 transition-opacity" />
               </a>
             )}
+            <p className="text-xs text-gray-400 mt-1 font-semibold">
+              ✨ La imagen se comprimirá automáticamente para ahorrar espacio.
+            </p>
           </div>
 
           <div className="flex gap-3 pt-2">
