@@ -3,12 +3,12 @@ import { NextResponse } from 'next/server'
 
 // Rutas protegidas por rol — si no tienes el rol, te redirige a tu página de inicio
 const RUTAS_PERMITIDAS = {
-  '/dashboard':                     ['Admin','Tesorero','Secretario','Apoderado'],
+  '/dashboard':                     ['Admin','Tesorero','Secretario', 'Apoderado'],
+  '/dashboard/usuarios':            ['Admin','Secretario','Secretario'], // 👈 Asegúrate de que esta línea exista
   '/dashboard/gastos':              ['Admin','Tesorero'],
-  '/dashboard/resumen':             ['Admin','Tesorero','Secretario'],
+  '/dashboard/resumen':             ['Admin','Tesorero','Secretario', 'Apoderado'],
   '/dashboard/admin':               ['Admin','Secretario'],
   '/dashboard/admin/configuracion': ['Admin'],
-  // Niños y Comunidad: todos los roles autenticados
   '/dashboard/ninos':               ['Admin','Tesorero','Secretario','Educador','Apoderado'],
   '/dashboard/comunidad':           ['Admin','Tesorero','Secretario','Educador','Apoderado'],
 }
