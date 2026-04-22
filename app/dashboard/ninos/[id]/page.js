@@ -6,6 +6,7 @@ import CuadernoDiario from '@/app/dashboard/ninos/cuaderno'
 import { useParams } from 'next/navigation'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import { getChileISO } from '@/lib/date-utils'
 
 export default function NinoDetailPage() {
   const params = useParams()
@@ -25,6 +26,7 @@ export default function NinoDetailPage() {
   const supabase = createClient()
   const MESES_DB = ['Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
   const MES_ACTUAL = new Date().getMonth() + 1   // 1-12
+  const [selectedDate, setSelectedDate] = useState(getChileISO());
 
   useEffect(() => {
     fetchDatos()

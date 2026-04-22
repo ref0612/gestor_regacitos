@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getChileISO } from '@/lib/date-utils'
 
 const ANIO_ACTUAL = new Date().getFullYear()
 
@@ -125,6 +126,8 @@ export default function DashboardPage() {
   const fmt = (n) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n || 0);
   const fmtDate = (d) => new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
 
+  const hoy = getChileISO();
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-64 space-y-4">
       <div className="relative">
@@ -208,7 +211,7 @@ export default function DashboardPage() {
                   </span>
                   
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{m.descripcion}</p>
+                    <p className="text-sm font-semibold text-gray-800 break-words line-clamp-3 md:line-clamp-none pr-4">{m.descripcion}</p>
                     <p className="text-xs text-gray-400 flex items-center gap-2">
                       <span className={m.destino === 'Huellas' ? 'text-blue-500 font-medium' : 'text-brand-600 font-medium'}>
                         {m.destino}

@@ -73,6 +73,13 @@ function ModalMovimiento({ mov, categorias, onClose, onGuardado }) {
     e.preventDefault()
     if (!form.monto || Number(form.monto) <= 0) { setError('Ingresa un monto válido'); return }
     if (!form.fecha) { setError('Selecciona una fecha'); return }
+
+    // NUEVA REGLA: Si no hay archivo nuevo adjunto y TAMPOCO hay una URL de comprobante previo (en caso de edición)
+    if (!form.comprobante && !mov?.comprobante_url) { 
+      setError('Es obligatorio adjuntar una foto del comprobante / boleta'); 
+      return; 
+    }
+
     setGuardando(true)
     setError('')
     try {
@@ -195,7 +202,7 @@ function ModalMovimiento({ mov, categorias, onClose, onGuardado }) {
 
           {/* Comprobante */}
           <div>
-            <label className="label">Foto comprobante (opcional)</label>
+            <label className="label">Foto comprobante <span className="text-red-500">*</span></label>
             <input type="file" accept="image/*" className="input text-xs py-1.5"
               onChange={e => {
                 const f = e.target.files[0]

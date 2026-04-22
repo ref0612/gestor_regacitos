@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getChileISO } from '@/lib/date-utils'
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 const ESTADOS = [
@@ -40,7 +41,7 @@ const getFechaLocal = () => {
 };
 
 const FORM_VACIO = {
-  fecha: getFechaLocal(), // Usamos la función local aquí
+  fecha: getChileISO(), // Usamos la función local aquí
   estado_animo: '',
   panales: 0, orinas: 0, deposiciones: 0,
   desayuno: '', desayuno_actitud: '',
@@ -112,7 +113,7 @@ function Contador({ label, icon, value, onChange, disabled, color = 'sky' }) {
 
 // ── Selector de Fecha Premium ────────────────────────────────────────────────
 function CalendarioElegante({ fechaActual, onChange, onClose }) {
-  const [viewDate, setViewDate] = useState(new Date(fechaActual + 'T12:00:00'));
+  const [viewDate, setViewDate] = useState(new Date(getChileISO() + 'T12:00:00'));
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -126,8 +127,7 @@ function CalendarioElegante({ fechaActual, onChange, onClose }) {
   const DIAS_SEMANA = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
 
   const navMes = (dir) => setViewDate(new Date(year, month + dir, 1));
-  const hoy = new Date();
-  const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const hoyStr = getChileISO();
 
   function seleccionarDia(dia) {
     const m = String(month + 1).padStart(2, '0');
@@ -220,7 +220,7 @@ function ModalRegistro({ idNino, registro, nombreNino, onClose, onGuardado }) {
     siesta_calidad:    registro.siesta_calidad  || '',
     observaciones:     registro.observaciones   || '',
     medicamento:       registro.medicamento     || '',
-  } : { ...FORM_VACIO, fecha: getFechaLocal() }); // Actualizamos la fecha al momento exacto del clic
+  } : { ...FORM_VACIO, fecha: getChileISO() }); // Actualizamos la fecha al momento exacto del clic
 
   const [guardando, setGuardando] = useState(false)
   const [error, setError]         = useState('')
@@ -640,8 +640,8 @@ export default function CuadernoDiario({ idNino, nombreNino, perfil, idUsuario }
   const [modal, setModal]         = useState(null)
 
   // NUEVO: Navegación por fecha exacta
-  const hoyStr = new Date().toISOString().split('T')[0]
-  const [fechaVista, setFechaVista] = useState(hoyStr) 
+  const hoyStr = getChileISO(); // <-- Usamos tu utilidad maestro
+  const [fechaVista, setFechaVista] = useState(hoyStr); 
 
   const supabase = createClient()
   const puedeRegistrar = ['Admin','Educador','Tesorero'].includes(perfil?.rol)
